@@ -151,14 +151,20 @@ int main(void)
 						frame_send_buf[index_frame_send]=USART_RX_BUF[5];
 						index_frame_send++;
 						frame_send_buf[index_frame_send]=0;
-						index_frame_send+=3;
+						index_frame_send+=4;
 
 						for(j=0;j<FREQUENCY_POINT;j++){
 							
 							RDA5820_Freq_Set(freqset);//设置频率
-							delay_ms(30);//等待10ms调频信号稳定
+							delay_ms(400);//等待10ms调频信号稳定
+							if(RDA5820_RD_Reg(0X0B)&(1<<8)){//是一个有效电台. 
+								frame_send_buf[9]=1;		 
+							}else{
+								frame_send_buf[9]=0;
+							}
+							delay_ms(400);
 							frame_send_buf[8]=RDA5820_Rssi_Get();//得到信号强度
-							frame_send_buf[9]=XOR(frame_send_buf,index_frame_send-1);
+							frame_send_buf[10]=XOR(frame_send_buf,index_frame_send-1);
 							for(t=0;t<index_frame_send;t++)
 							{
 								if(main_busy==0)break;
@@ -166,7 +172,7 @@ int main(void)
 								while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
 							}
 							if(main_busy==0)break;
-							delay_ms(20);
+							delay_ms(200);
 							frame_send_buf[7]++;
 
 							if(freqset<FREQUENCY_MAX)freqset+=10;  //频率增加100Khz
@@ -245,8 +251,8 @@ int main(void)
 				   /*******************数据帧处理，1字节转为4bits，结束*********************************/		
 						for(t=0;t<index_frame_send;t++)
 						{
-//							USART_SendData(USART1, frame_send_buf[t]);//向串口发送数据
-//							while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
+							USART_SendData(USART1, frame_send_buf[t]);//向串口发送数据
+							while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
 						}
 					}else{
 						flag_byte_ready=0;//数据帧字节流保存到本地，未成功
