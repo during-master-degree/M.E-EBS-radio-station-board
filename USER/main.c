@@ -496,14 +496,17 @@ int main(void)
 				   		fm_total_bytes=USART_RX_BUF[6]*256+USART_RX_BUF[7];
 					if((fm_total_bytes==FRAME_WAKEUP_BROADCAST )||(fm_total_bytes==FRAME_WAKEUP_UNICAST  )||(fm_total_bytes==FRAME_WAKEUP_MULTICAST  )||(fm_total_bytes==FRAME_CONTROL  )||(fm_total_bytes==FRAME_SECURTY  )){
 						for(t=0;t<fm_total_bytes;t++){
-							if((fm_total_bytes==FRAME_WAKEUP_BROADCAST)||(fm_total_bytes==FRAME_WAKEUP_UNICAST)||(fm_total_bytes==FRAME_WAKEUP_MULTICAST)){
+							if((fm_total_bytes==FRAME_WAKEUP_BROADCAST)||(fm_total_bytes==FRAME_WAKEUP_UNICAST)||(fm_total_bytes==FRAME_WAKEUP_MULTICAST)||(fm_total_bytes==FRAME_CONTROL)){
 								fm_frame_byte[fm_frame_index_byte]=USART_RX_BUF[t+9]-0x30;//唤醒帧中加入了一个字节，所以唤醒帧与认证帧的数据起始位没有对齐
-							}else{fm_frame_byte[fm_frame_index_byte]=USART_RX_BUF[t+8]-0x30;}
+							}else{fm_frame_byte[fm_frame_index_byte]=USART_RX_BUF[t+8]-0x30;}//认证帧
 							fm_frame_index_byte++;
 						}
 						if(fm_total_bytes==FRAME_SECURTY){flag_safe_frame=1;}//收到了认证帧
 						if((fm_total_bytes==FRAME_WAKEUP_BROADCAST)||(fm_total_bytes==FRAME_WAKEUP_UNICAST)||(fm_total_bytes==FRAME_WAKEUP_MULTICAST)){
 							flag_is_wakeup_frame=1;//收到了唤醒帧
+							wakeup_times=(USART_RX_BUF[8]-0x30)*3;//每秒钟发送三次唤醒帧
+						}else if(fm_total_bytes==FRAME_CONTROL){
+							flag_is_wakeup_frame=2;//收到了控制帧
 							wakeup_times=(USART_RX_BUF[8]-0x30)*3;//每秒钟发送三次唤醒帧
 						}
 						flag_byte_ready=1;//数据帧字节流保存到本地，成功

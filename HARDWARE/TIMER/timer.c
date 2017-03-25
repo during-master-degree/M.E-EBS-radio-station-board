@@ -102,8 +102,9 @@ void TIM3_IRQHandler(void)   //TIM3中断
 //			PAout(7)=fm_frame_bits[t];//还需要加位同步，帧同步头
 //			t++;
 //		}
-		if(flag_is_wakeup_frame==0){//非唤醒帧
-			if(t<fm_frame_index_bits)//广播25+120*2；单播25+144*2；组播25+168*2；控制帧：25+84*2；
+///////////////////////////////////////////认证帧///////////////////////////////////////////////////////
+		if(flag_is_wakeup_frame==0){//认证帧
+			if(t<fm_frame_index_bits)//控制帧：25+84*2；
 			{  			
 				PAout(7)=fm_frame_bits[t];//frame_control[t];
 				timer_67_stop=0;
@@ -133,7 +134,57 @@ void TIM3_IRQHandler(void)   //TIM3中断
 				USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//打开中断
 			}//数据帧循环发送
 		}
-////////////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////控制帧///////////////////////////////////////////////////////
+		if((flag_is_wakeup_frame==2)&&(wakeup_times_index<wakeup_times)){//唤醒帧
+			if(t<fm_frame_index_bits)//广播25+120*2；单播25+144*2；组播25+168*2；控制帧：25+84*2；
+			{  			
+				PAout(7)=fm_frame_bits[t];//frame_control[t];
+				timer_67_stop=0;
+				t++;
+			}else if(t>=fm_frame_index_bits){//此处要用else嵌套，否则信号电平不能维持一个码元时间
+				PAout(7)=0;
+				if(delay_index>=FRAME_INTERVAL_CONTROL){//发送完一帧唤醒帧，停顿一下，给终端留下处理时间
+					wakeup_times_index++;//停顿完毕，表示一次唤醒帧完成，准备进入下一次
+					delay_index=0;//索引归零
+					t=0;
+				}else{
+					delay_index++;
+				}
+				if(delay_index==FSK_EXTEND)timer_67_stop=1;//FSK信号多震荡20ms，以免漏掉有用信号，然后将其关闭
+
+				//FSK信号提前震荡20ms，以免漏掉有用信号。条件判断的后一个条件，避免最后一次发送时，多震荡20ms，而退出
+				if((delay_index==FRAME_INTERVAL_CONTROL-FSK_EXTEND)&&(wakeup_times_index<(wakeup_times-1)))timer_67_stop=0;  
+								
+			}
+		}else if((flag_is_wakeup_frame==1)&&(wakeup_times_index>=wakeup_times)&&(wakeup_times!=0)){//多次发送完毕，清理
+			flag_is_wakeup_frame=0;//多次唤醒帧发送完毕
+			wakeup_times_index=0;
+			wakeup_times=0;
+
+			TIM_Cmd(TIM3,DISABLE);
+			PAout(7)=0;			
+//			t=0;
+//			timer_67_stop=1;
+//			delay_ms(20);//让FSK信号再振一会。（这三句都不需要了，已经在上边做过了）
+			TIM_Cmd(TIM6,DISABLE);
+			TIM_Cmd(TIM7,DISABLE);
+			TIM_Cmd(TIM5, ENABLE); //使能TIMx
+			USART_RX_STA=0;//处理完毕，允许接收下一帧
+			usart1_works=0;//处理完毕，标志串口1允许使用
+			usart2_works=0;//处理完毕，标志串口2允许使用
+				
+			fm_frame_index_byte=0;//字节流数组清空
+			
+			USART2_RX_STA=0;//处理完毕，允许接收下一帧。防止循环进入
+			if(flag_voice_broad==0){
+				RDA5820_RX_Mode();			//接收模式
+				RDA5820_Freq_Set(send_frequency);	//设置频率
+			}
+			USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
+//			USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//打开中断
+		}
+///////////////////////////////////////////唤醒帧/////////////////////////////////////////////////////////
 
 		if((flag_is_wakeup_frame==1)&&(wakeup_times_index<wakeup_times)){//唤醒帧
 			if(t<fm_frame_index_bits)//广播25+120*2；单播25+144*2；组播25+168*2；控制帧：25+84*2；
