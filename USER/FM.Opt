@@ -18,7 +18,7 @@ GRPOPT 4,(CORE),0,0,0
 GRPOPT 5,(FWLib),1,0,0
 GRPOPT 6,(USMART),1,0,0
 
-OPTFFF 1,1,1,285212672,0,188,194,0,<.\main.c><main.c> { 44,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,255,255,255,255,247,255,255,255,220,255,255,255,44,0,0,0,58,0,0,0,66,5,0,0,207,1,0,0 }
+OPTFFF 1,1,1,1711276034,0,220,235,0,<.\main.c><main.c> { 44,0,0,0,2,0,0,0,3,0,0,0,255,255,255,255,255,255,255,255,248,255,255,255,226,255,255,255,44,0,0,0,58,0,0,0,66,5,0,0,207,1,0,0 }
 OPTFFF 1,2,1,0,0,0,0,0,<.\stm32f10x_it.c><stm32f10x_it.c> 
 OPTFFF 1,3,1,0,0,0,0,0,<.\system_stm32f10x.c><system_stm32f10x.c> 
 OPTFFF 2,4,1,16777216,0,0,0,0,<..\HARDWARE\LED\led.c><led.c> 
@@ -27,24 +27,23 @@ OPTFFF 2,6,1,33554432,0,0,0,0,<..\HARDWARE\LCD\lcd.c><lcd.c>
 OPTFFF 2,7,1,1744830464,0,0,0,0,<..\HARDWARE\IIC\myiic.c><myiic.c> 
 OPTFFF 2,8,1,0,0,0,0,0,<..\HARDWARE\AUDIOSEL\audiosel.c><audiosel.c> 
 OPTFFF 2,9,1,0,0,0,0,0,<..\HARDWARE\RDA5820\rda5820.c><rda5820.c> 
-OPTFFF 2,10,1,285212672,0,371,378,0,<..\HARDWARE\TIMER\timer.c><timer.c> { 44,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,255,255,255,255,247,255,255,255,220,255,255,255,25,0,0,0,25,0,0,0,47,5,0,0,14,2,0,0 }
+OPTFFF 2,10,1,620756992,0,87,87,0,<..\HARDWARE\TIMER\timer.c><timer.c> { 44,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,255,255,255,255,248,255,255,255,226,255,255,255,25,0,0,0,25,0,0,0,47,5,0,0,14,2,0,0 }
 OPTFFF 2,11,1,385875968,0,0,0,0,<..\HARDWARE\gray\gray.c><gray.c> 
 OPTFFF 3,12,1,83886080,0,0,0,0,<..\SYSTEM\delay\delay.c><delay.c> 
 OPTFFF 3,13,1,0,0,0,0,0,<..\SYSTEM\sys\sys.c><sys.c> 
-OPTFFF 3,14,1,268435458,0,151,151,0,<..\SYSTEM\usart\usart.c><usart.c> { 44,0,0,0,2,0,0,0,3,0,0,0,255,255,255,255,255,255,255,255,247,255,255,255,220,255,255,255,125,0,0,0,125,0,0,0,147,5,0,0,138,2,0,0 }
+OPTFFF 3,14,1,956301312,0,131,131,0,<..\SYSTEM\usart\usart.c><usart.c> { 44,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,255,255,255,255,248,255,255,255,226,255,255,255,75,0,0,0,75,0,0,0,85,6,0,0,193,1,0,0 }
 OPTFFF 4,15,1,0,0,0,0,0,<..\CORE\core_cm3.c><core_cm3.c> 
-OPTFFF 4,16,2,0,0,0,0,0,<..\CORE\startup_stm32f10x_hd.s><startup_stm32f10x_hd.s> 
+OPTFFF 4,16,2,0,0,140,151,0,<..\CORE\startup_stm32f10x_hd.s><startup_stm32f10x_hd.s> { 44,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,255,255,255,255,248,255,255,255,226,255,255,255,75,0,0,0,75,0,0,0,133,5,0,0,232,1,0,0 }
 OPTFFF 5,17,1,0,0,0,0,0,<..\STM32F10x_FWLib\src\misc.c><misc.c> 
 OPTFFF 5,18,1,0,0,0,0,0,<..\STM32F10x_FWLib\src\stm32f10x_fsmc.c><stm32f10x_fsmc.c> 
 OPTFFF 5,19,1,318767104,0,0,0,0,<..\STM32F10x_FWLib\src\stm32f10x_gpio.c><stm32f10x_gpio.c> 
 OPTFFF 5,20,1,0,0,0,0,0,<..\STM32F10x_FWLib\src\stm32f10x_rcc.c><stm32f10x_rcc.c> 
 OPTFFF 5,21,1,369098752,0,0,0,0,<..\STM32F10x_FWLib\src\stm32f10x_usart.c><stm32f10x_usart.c> 
-OPTFFF 5,22,1,83886080,0,0,0,0,<..\STM32F10x_FWLib\src\stm32f10x_tim.c><stm32f10x_tim.c> 
-OPTFFF 6,23,1,0,0,0,0,0,<..\USMART\usmart.c><usmart.c> 
+OPTFFF 5,22,1,0,0,0,0,0,<..\STM32F10x_FWLib\src\stm32f10x_tim.c><stm32f10x_tim.c> 
+OPTFFF 6,23,1,301989888,0,0,0,0,<..\USMART\usmart.c><usmart.c> 
 OPTFFF 6,24,1,83886080,0,0,0,0,<..\USMART\usmart_config.c><usmart_config.c> 
 OPTFFF 6,25,1,167772160,0,0,0,0,<..\USMART\usmart_str.c><usmart_str.c> 
 
-ExtF <E:\bikai\keil\workspace\2013.7.30电台(蜂鸣器乱响，接收端也有错帧)\电台\HARDWARE\TIMER\timer.h> 1,1,0,{ 44,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,255,255,255,255,247,255,255,255,220,255,255,255,90,0,0,0,90,0,0,0,133,4,0,0,208,1,0,0 }
 
 TARGOPT 1, (Target 1)
  ADSCLK=8000000

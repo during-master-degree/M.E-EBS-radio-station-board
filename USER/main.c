@@ -20,13 +20,12 @@
 #define FRAME_CONTROL 84*2/4
 #define FRAME_SECURTY 84/4
 
-//u8 flag_frame_processing=0;//收到的数据帧正在处理标志位。1:处理中;0:空闲;用于状态查询，发送FSK数据中不允许被打断
 u8 index_frame_send=0;//串口回复信息帧下标
 u8 frame_send_buf[100]={0};//串口回传缓冲区
 
 u16 fm_frame_index_bits=0;//FM广播01序列比特流下标
 u8 fm_frame_bits[1100]={1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,0,0,1,0,0,1,0};//FM广播帧序列比特流缓冲区
-u16 fm_frame_index_byte=0;//FM广播01序列字节流下标
+u16 fm_frame_index_byte=0;//FM广播01序列转为字节流的下标
 u8 fm_frame_byte[1100/2]={0};//FM广播帧序列字节流缓冲区
 
 void frame_resent(void);
@@ -38,7 +37,7 @@ u16 temp_frame_byte_index=0;//测试数组
 
 u8 usart2_works=0;//串口2工作状态指示。0：空闲；1：发送连接帧；2：接收连接反馈帧；3：发送数据帧；4：接收数据帧；
 u8 usart1_works=0;//串口1工作状态指示。0：空闲；1：接收连接帧；2：发送连接反馈帧；3：接收频谱扫描帧；4：发送频谱扫描反馈帧；
-				  //5:接收控制帧;6:发送控制反馈帧;7:接收数据帧;8:发送数据反馈帧(包括重传帧);9：数据帧无线传输中；
+				  //5:接收控制帧;6:发送控制反馈帧;7:接收数据帧;8:发送数据反馈帧(包括重传帧);9：数据帧无线传输中(不允许被打断)；
 u8 frame_safe[40]={0};//认证帧重组，发给安全芯片
 u8 index_frame_safe=0;//认证帧数组下表，发给安全芯片
 u8 index_safe_times=0;//认证帧发送次数计数器
@@ -164,9 +163,11 @@ int main(void)
 							
 						}
 
+						TIM_Cmd(TIM5, DISABLE); //失能TIMx
 						TIM_Cmd(TIM3, ENABLE); //使能TIMx
 						TIM_Cmd(TIM6, ENABLE); //使能TIMx
 						TIM_Cmd(TIM7, ENABLE); //使能TIMx
+						
 
 						USART2_RX_STA=0;//处理完毕，允许接收下一帧
 						usart2_works=0;//发送完毕，清理标志位
@@ -186,7 +187,7 @@ int main(void)
 
 
 /******************************************************************串口1接收的数据帧，发送处理************************************************************************************/
-		if(flag_byte_ready==1){//数据保存本地成功
+		if((flag_byte_ready==1)&&(usart1_works!=0)){//数据保存本地成功
 			usart1_works=9;//数据无线传输中
 			if(flag_safe_frame==1){//认证帧
 				safe_soc();//把明文发送给安全芯片
@@ -213,13 +214,14 @@ int main(void)
 						fm_frame_index_bits++;
 					}
 				}
+
+				TIM_Cmd(TIM5, DISABLE); //失能TIM5，避免产生16ms的中断干扰无线发送
 				TIM_Cmd(TIM3, ENABLE); //使能TIMx
 				TIM_Cmd(TIM6, ENABLE); //使能TIMx
 				TIM_Cmd(TIM7, ENABLE); //使能TIMx
-
+				
 				
 			}
-//			flag_frame_processing=1;
 //			for (temp_frame_byte_index=0;temp_frame_byte_index<fm_frame_index_bits/4;temp_frame_byte_index++)
 //			{
 //				temp_frame_byte[temp_frame_byte_index]=fm_frame_bits[temp_frame_byte_index*4]*8+fm_frame_bits[temp_frame_byte_index*4+1]*4+fm_frame_bits[temp_frame_byte_index*4+2]*2+fm_frame_bits[temp_frame_byte_index*4+3]*1+0x30;//ASCII 0码对应十进制是0x30
@@ -230,14 +232,8 @@ int main(void)
 //				USART_SendData(USART2, fm_frame_bits[t]);//向串口发送数据
 //				while(USART_GetFlagStatus(USART2,USART_FLAG_TC)!=SET);//等待发送结束
 //			}
-
-			flag_byte_ready=0;//处理完毕，清零
-			if(usart2_works==0)	{
-				fm_frame_index_byte=0;//字节流数组清空
-				USART_RX_STA=0;//处理完毕，允许接收下一帧
-			}
+			
 			flag_safe_frame=0;//清除认证帧标志位
-			usart1_works=0;//处理完毕，标志清零
 		}
 		
 			
@@ -420,23 +416,25 @@ int main(void)
 							USART_SendData(USART1, frame_send_buf[t]);//向串口发送数据
 							while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
 						}
-					}else{
+					}else{//这里应该不会执行，保险起见，对之处理
 						flag_byte_ready=0;//数据帧字节流保存到本地，未成功
+						flag_safe_frame=0;//取消安全帧标志位
 						fm_frame_index_byte=0;//字节流数组清空
 						USART_RX_STA=0;
-						usart1_works=0;//异常，标志清零	
+						usart1_works=0;//异常，标志清零
+						USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);	
 //						printf("\r\nData frame error.\r\n");
 						}
 					}else {USART_RX_STA=0;USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);usart1_works=0;}//else{printf("Frame anomalous!");}
-				}else {//数据帧的校验和出错时，请求重传
+				}else {//帧的校验和出错时，是数据帧的校验和出错时，请求重传
 					USART_RX_STA=0;
 					USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
 					frame_resent();//求重传
 					usart1_works=0;		
-					}//else{printf("Verify bits wrong!");}
+				}//else{printf("Verify bits wrong!");}
 		    }else {USART_RX_STA=0;USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);usart1_works=0;}//if(USART_RX_BUF[0]=='$')
 						
-		}else {USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);}//if(USART_RX_STA&0x8000)
+		}else if((flag_byte_ready==0)&&(usart1_works==0)){USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);}//if(USART_RX_STA&0x8000)，本判断只有当数据帧字节流未收满时使用；除数据帧外的其他帧在本判断中已处理完毕
 			
 	}//while(1)
 }
@@ -444,9 +442,9 @@ int main(void)
 
 
 void frame_resent(void){
-	u16 t=0;
+	u8 t=0;
 	
-if((USART_RX_BUF[1]=='d')&&(USART_RX_BUF[2]=='a')&&(USART_RX_BUF[3]=='t')&&(USART_RX_BUF[4]=='_')){//数据帧
+if((USART_RX_BUF[1]=='d')&&(USART_RX_BUF[2]=='a')&&(USART_RX_BUF[3]=='t')&&(USART_RX_BUF[4]=='_')){//只有数据帧，才重传
 	index_frame_send=0;
 	frame_send_buf[index_frame_send]='$';
 	index_frame_send++;
@@ -462,15 +460,10 @@ if((USART_RX_BUF[1]=='d')&&(USART_RX_BUF[2]=='a')&&(USART_RX_BUF[3]=='t')&&(USAR
 	index_frame_send++;
 	frame_send_buf[index_frame_send]=0;
 	index_frame_send++;
-	frame_send_buf[index_frame_send]=0;//重传数据帧类型。1：广播唤醒帧；2：单播唤醒帧；3：组播唤醒帧；4：控制帧；5：认证帧；
+	frame_send_buf[index_frame_send]=0;//一问一答方式，上位机自动重传刚才发的数据帧。重传数据帧类型。1：广播唤醒帧；2：单播唤醒帧；3：组播唤醒帧；4：控制帧；5：认证帧；
 	index_frame_send++;
 	frame_send_buf[index_frame_send]=XOR(frame_send_buf,index_frame_send);
 	index_frame_send++;
-
-//	fm_total_bytes=USART_RX_BUF[6]*256+USART_RX_BUF[7];
-//	if((fm_total_bytes==FRAME_WAKEUP_BROADCAST )||(fm_total_bytes==FRAME_WAKEUP_UNICAST  )||(fm_total_bytes==FRAME_WAKEUP_MULTICAST  )||(fm_total_bytes==FRAME_CONTROL  )||(fm_total_bytes==FRAME_SECURTY  )){
-//
-//	}
 
 	for(t=0;t<index_frame_send;t++)
 	{

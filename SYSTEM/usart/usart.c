@@ -131,7 +131,7 @@ void uart_init(u32 bound){
 
 }
 
-//extern u8 flag_frame_processing;//收到的数据帧正在处理标志位。1:处理中;0:空闲;
+
 u8 flag_frame_sync=0;//串口1数据帧同步标志位
 extern u8 usart2_works;//串口2工作状态指示。0：空闲；1：发送连接帧；2：接收连接反馈帧；3：发送数据帧；4：接收数据帧(包括重传帧)；
 extern u8 usart1_works;//串口1工作状态指示。0：空闲；1：接收连接帧；2：发送连接反馈帧；3：接收频谱扫描帧；4：发送频谱扫描反馈帧；
@@ -148,7 +148,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 	if(USART_GetITStatus(USART1, USART_IT_RXNE) != RESET)  //接收中断(接收到的数据必须是0x0d 0x0a结尾)
 		{
 		Res =USART_ReceiveData(USART1);//(USART1->DR);	//读取接收到的数据
-		if(Res=='$'){flag_frame_sync=1;USART_RX_STA=0;}//一帧数据中多次出现$，则从最后的一个$开始真正存储
+		if(Res=='$'){flag_frame_sync=1;USART_RX_STA=0;}//一帧数据中多次出现$，则从最后的一个$开始真正存储；可以防止结尾未出现0x0d,0x0a而空等待的问题
 		if(flag_frame_sync==1){//开始本次接收
 		if(usart1_works==4){//频谱扫描中，允许被中断
 			usart1_works=0;
@@ -177,6 +177,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 					}		 
 				}
 		}
+		
 		}//end of $   		 
      } 
 //#ifdef OS_TICKS_PER_SEC	 	//如果时钟节拍数定义了,说明要使用ucosII了.
@@ -276,8 +277,6 @@ void USART2_IRQHandler(void)                	//串口2中断服务程序
 				else {
 					USART2_RX_STA|=0x8000;	//接收完成了
 					flag_frame_sync_usart2=0;//准备下次接收
-					flag_safe_soc_ok=0;//安全芯片应答了
-					LED0=1;//关闭警示灯
 					USART_ITConfig(USART2, USART_IT_RXNE, DISABLE);//关闭中断
 					} 
 				}

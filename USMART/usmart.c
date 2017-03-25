@@ -217,7 +217,7 @@ void Timer2_Init(u16 arr,u16 psc)
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE; //IRQ通道被使能
 	NVIC_Init(&NVIC_InitStructure);  //根据NVIC_InitStruct中指定的参数初始化外设NVIC寄存器
 
-	TIM_Cmd(TIM2, ENABLE);  //使能TIMx外设
+	TIM_Cmd(TIM2, DISABLE);  //使能TIMx外设ENABLE
 								 
 }
 #endif
