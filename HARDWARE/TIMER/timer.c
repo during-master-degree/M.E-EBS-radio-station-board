@@ -104,13 +104,13 @@ void TIM3_IRQHandler(void)   //TIM3中断
 		if(flag_is_wakeup_frame==0){//非唤醒帧
 			if(t<fm_frame_index_bits)//广播25+120*2；单播25+144*2；组播25+168*2；控制帧：25+84*2；
 			{  			
-				PBout(6)=fm_frame_bits[t];//frame_control[t];
+				PAout(7)=fm_frame_bits[t];//frame_control[t];
 				timer_67_stop=0;
 				t++;
 			}else//帧发送完毕后的清理
 			{			
 				TIM_Cmd(TIM3,DISABLE);
-				PBout(6)=0;			
+				PAout(7)=0;			
 				t=0;
 				delay_ms(20);//让FSK信号再振一会
 				timer_67_stop=1;//多震荡20ms后关闭FSK
@@ -136,11 +136,11 @@ void TIM3_IRQHandler(void)   //TIM3中断
 		if((flag_is_wakeup_frame==1)&&(wakeup_times_index<wakeup_times)){//唤醒帧
 			if(t<fm_frame_index_bits)//广播25+120*2；单播25+144*2；组播25+168*2；控制帧：25+84*2；
 			{  			
-				PBout(6)=fm_frame_bits[t];//frame_control[t];
+				PAout(7)=fm_frame_bits[t];//frame_control[t];
 				timer_67_stop=0;
 				t++;
 			}else if(t>=fm_frame_index_bits){//此处要用else嵌套，否则信号电平不能维持一个码元时间
-				PBout(6)=0;
+				PAout(7)=0;
 				if(delay_index>=FRAME_INTERVAL){//发送完一帧唤醒帧，停顿一下，给终端留下处理时间
 					wakeup_times_index++;//停顿完毕，表示一次唤醒帧完成，准备进入下一次
 					delay_index=0;//索引归零
@@ -160,7 +160,7 @@ void TIM3_IRQHandler(void)   //TIM3中断
 			wakeup_times=0;
 
 			TIM_Cmd(TIM3,DISABLE);
-			PBout(6)=0;			
+			PAout(7)=0;			
 //			t=0;
 //			timer_67_stop=1;
 //			delay_ms(20);//让FSK信号再振一会。（这三句都不需要了，已经在上边做过了）
@@ -445,7 +445,7 @@ void TIM4_IRQHandler(void)   //TIM4中断
 			if(flag_safe_soc_ok==1){//安全芯片应答超时
 				LED0=0;//打开警示灯
 				TIM_Cmd(TIM3,DISABLE);
-			    PBout(6)=0;
+			    PAout(7)=0;
 				timer_67_stop=1;			  				
 				TIM_Cmd(TIM6,DISABLE);
 				TIM_Cmd(TIM7,DISABLE);
