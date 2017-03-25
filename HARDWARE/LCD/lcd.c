@@ -490,7 +490,7 @@ void LCD_Init(void)
  		} 
 		if(lcddev.id!=0X9341&&lcddev.id!=0X6804)lcddev.id=0x9341;//新增，用于识别9341 	     
 	}
- 	printf(" LCD ID:%x\r\n",lcddev.id); //打印LCD ID  
+// 	printf(" LCD ID:%x\r\n",lcddev.id); //打印LCD ID  
 	if(lcddev.id==0X9341)	//9341初始化
 	{	 
 		LCD_WR_REG(0xCF);  
