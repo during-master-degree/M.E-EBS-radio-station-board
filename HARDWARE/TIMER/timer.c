@@ -85,7 +85,6 @@ extern u8 usart1_works;//´®¿Ú1¹¤×÷×´Ì¬Ö¸Ê¾¡£0£º¿ÕÏĞ£»1£º½ÓÊÕÁ¬½ÓÖ¡£»2£º·¢ËÍÁ¬½Ó·
 u8 timer_67_stop=0;//¶¨Ê±Æ÷6,7±»Í£Ö¹±êÖ¾Î»¡£0£ºÎ´±»ÖÕÖ¹£»1£º±»ÖÕÖ¹£»
 extern u16 USART_RX_STA;       //´®¿Ú1×´Ì¬×Ö
 extern u16 USART2_RX_STA;       //´®¿Ú2×´Ì¬×Ö
-extern u8 flag_byte_ready;//×Ö½ÚÁ÷ÒÑ¾­È«²¿±£´æµ½±¾µØbuffer±êÖ¾Î»
 extern u16 fm_frame_index_byte;//FM¹ã²¥01ĞòÁĞ×ªÎª×Ö½ÚÁ÷µÄÏÂ±ê
 //¶¨Ê±Æ÷3ÖĞ¶Ï·şÎñ³ÌĞò
 void TIM3_IRQHandler(void)   //TIM3ÖĞ¶Ï
@@ -112,9 +111,10 @@ void TIM3_IRQHandler(void)   //TIM3ÖĞ¶Ï
 			TIM_Cmd(TIM5, ENABLE); //Ê¹ÄÜTIMx
 			usart1_works=0;//´¦ÀíÍê±Ï£¬±êÖ¾´®¿Ú1ÔÊĞíÊ¹ÓÃ
 			usart2_works=0;//´¦ÀíÍê±Ï£¬±êÖ¾´®¿Ú2ÔÊĞíÊ¹ÓÃ
-			flag_byte_ready=0;//´¦ÀíÍê±Ï£¬ÇåÁã
+			
 			fm_frame_index_byte=0;//×Ö½ÚÁ÷Êı×éÇå¿Õ
 			USART_RX_STA=0;//´¦ÀíÍê±Ï£¬ÔÊĞí½ÓÊÕÏÂÒ»Ö¡
+			USART2_RX_STA=0;//´¦ÀíÍê±Ï£¬ÔÊĞí½ÓÊÕÏÂÒ»Ö¡¡£·ÀÖ¹Ñ­»·½øÈë
 			USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//´ò¿ªÖĞ¶Ï
 			USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//´ò¿ªÖĞ¶Ï
 		}//Êı¾İÖ¡Ñ­»··¢ËÍ
@@ -186,7 +186,7 @@ void TIM5_IRQHandler(void)   //TIM5ÖĞ¶Ï
 		if((secury_chip_ckeck>=CHIP_CHECK_FREQUENCY)&&(USART_RX_STA==0)&&(USART2_RX_STA==0)&&(usart1_works==0)&&(usart2_works==0)){//¼ÆÊıµ½5ÃëÖÓ£¬µ±´®¿Ú1¡¢2¶¼¿ÕÏĞÊ±£¬¿ªÊ¼²éÑ¯£¬·ñÔòµÈ´ıÏÂÒ»´ÎÖĞ¶ÏÊ±ÖØĞÂÅĞ¶Ï
 			flag_safe_soc_ok=1;//²éÑ¯Ç°ÏÈ±ê¼Ç²»¿ÉÓÃ£¬´®¿Ú2ÊÕµ½Ó¦´ğºóÔÙ±ê¼ÇÎª¿ÉÓÃ
 			LED0=0;//±ê¼Ç²»¿ÉÓÃ
-
+			usart2_works=1;//·¢ËÍÁ¬½ÓÖ¡
 			frame_send_buf_chip[index_frame_send_chip]='$';
 			index_frame_send_chip++;
 			frame_send_buf_chip[index_frame_send_chip]='s';
@@ -372,10 +372,12 @@ void TIM4_IRQHandler(void)   //TIM3ÖĞ¶Ï
 	//		PBout(9)=~PBout(9);//ÏÈ×ö²âÊÔ£¬¿´¿´¶¨Ê±Æ÷ÆğÀ´ÁËÃ»ÓĞ
 			if(flag_safe_soc_ok==1){//°²È«Ğ¾Æ¬Ó¦´ğ³¬Ê±
 				LED0=0;//´ò¿ª¾¯Ê¾µÆ
-			    PBout(6)=0;
 				TIM_Cmd(TIM3,DISABLE);
+			    PBout(6)=0;
+				timer_67_stop=1;			  				
 				TIM_Cmd(TIM6,DISABLE);
 				TIM_Cmd(TIM7,DISABLE);
+				TIM_Cmd(TIM5, ENABLE); //Ê¹ÄÜTIMx
 				usart1_works=0;//´¦ÀíÍê±Ï£¬±êÖ¾´®¿Ú1ÔÊĞíÊ¹ÓÃ
 				usart2_works=0;//´¦ÀíÍê±Ï£¬±êÖ¾´®¿Ú2ÔÊĞíÊ¹ÓÃ
 				USART_RX_STA=0;

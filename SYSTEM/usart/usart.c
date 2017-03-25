@@ -261,7 +261,7 @@ void USART2_IRQHandler(void)                	//串口2中断服务程序
 	if(USART_GetITStatus(USART2, USART_IT_RXNE) != RESET)  //接收中断(接收到的数据必须是0x0d 0x0a结尾)
 		{
 		Res =USART_ReceiveData(USART2);//(USART1->DR);	//读取接收到的数据
-		if(Res=='$'){flag_frame_sync_usart2=1;USART2_RX_STA=0;}
+		if(Res=='$'){flag_frame_sync_usart2=1;USART2_RX_STA=0;}//一帧数据中多次出现$，则从最后的一个$开始真正存储；可以防止结尾未出现0x0d,0x0a而空等待的问题
 		if(flag_frame_sync_usart2==1){//开始本次接收
 			
 //		if(main_busy==1){//认证帧组帧时，不允许被新帧打断
