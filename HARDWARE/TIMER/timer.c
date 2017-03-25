@@ -109,18 +109,25 @@ void TIM3_IRQHandler(void)   //TIM3中断
 		}else//帧发送完毕后的清理
 		{
 			PBout(6)=0;
+			
 			t=0;
 			TIM_Cmd(TIM3,DISABLE);
 			TIM_Cmd(TIM6,DISABLE);
 			TIM_Cmd(TIM7,DISABLE);
-//			flag_frame_processing=0;
+			PBout(8)=0;//输出0，关闭蜂鸣器输出
 			usart1_works=0;//处理完毕，标志串口1允许使用
+//			usart2_works=0;//处理完毕，标志串口2允许使用
 			USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
+//			USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//打开中断
 		}//数据帧循环发送
 		
 
 		TIM_ClearITPendingBit(TIM3, TIM_IT_Update  );  //清除TIMx更新中断标志
 	}
+
+
+
+
 }
 
 
@@ -170,18 +177,33 @@ u8 secury_chip_ckeck=0;//安全芯片查询位，计数到5即5秒，查询一次
 u8 frame_send_buf_chip[100]={0};//串口回传缓冲区
 u8 index_chipcheck_times=0;//芯片查询次数
 extern u8 flag_safe_soc;//安全芯片是否可用标志位。0：可用；1：不可用；
-
+extern u8 flag_safe_soc_ok;//安全芯片超时与应答。1：未应答；0：已应答；
+extern u16 USART_RX_STA;       //串口1状态字
+extern u16 USART2_RX_STA;       //串口2状态字
+extern u16 fm_frame_index_byte;//FM广播01序列字节流下标
 void TIM5_IRQHandler(void)   //TIM5中断
 {
 	u16 t=0;
 	u8 index_frame_send_chip=0;//串口回复信息帧下标
 
+	if(flag_safe_soc_ok==1){//安全芯片应答超时
+	   PBout(6)=0;
+		TIM_Cmd(TIM3,DISABLE);
+		TIM_Cmd(TIM6,DISABLE);
+		TIM_Cmd(TIM7,DISABLE);
+		usart1_works=0;//处理完毕，标志串口1允许使用
+		usart2_works=0;//处理完毕，标志串口2允许使用
+		USART_RX_STA=0;
+		USART2_RX_STA=0;
+		fm_frame_index_byte=0;
+		USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
+		USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//打开中断
+	}
+
 	if (TIM_GetITStatus(TIM5, TIM_IT_Update) != RESET)  //检查TIM5更新中断发生与否
 	{
 		TIM_ClearITPendingBit(TIM5, TIM_IT_Update  );  //清除TIMx更新中断标志
-		LED1=!LED1;
-		if(flag_safe_soc==0){//安全芯片可用时 
-		
+		LED1=!LED1;		
 		if((secury_chip_ckeck>=CHIP_CHECK_FREQUENCY)&&(usart1_works==0)&&(usart2_works==0)){//计数到5秒钟，当串口1、2都空闲时，开始查询，否则等待下一次中断时重新判断
 			frame_send_buf_chip[index_frame_send_chip]='$';
 			index_frame_send_chip++;
@@ -208,14 +230,15 @@ void TIM5_IRQHandler(void)   //TIM5中断
 				USART_SendData(USART2, frame_send_buf_chip[t]);  //向串口2发送数据
 				while(USART_GetFlagStatus(USART2,USART_FLAG_TC)!=SET);//等待发送结束
 			}
+
 			flag_safe_soc=1;//查询前先标记不可用，串口2收到应答后再标记为可用
+			LED0=0;
 			secury_chip_ckeck=0;		
 		}else{
 			secury_chip_ckeck++;
 		}
-	   }else{//检测到上次置的不可用状态维持到了第二次查询，认为安全芯片故障
-	   	    LED0=0;
-	   }
+	   	    
+
 	}
 }
 

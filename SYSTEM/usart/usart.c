@@ -1,5 +1,6 @@
 #include "sys.h"
-#include "usart.h"	  
+#include "usart.h"
+#include "led.h"	  
 ////////////////////////////////////////////////////////////////////////////////// 	 
 //如果使用ucos,则包括下面的头文件即可.
 #if SYSTEM_SUPPORT_UCOS
@@ -198,7 +199,7 @@ u8 USART2_RX_BUF[USART2_REC_LEN];     //接收缓冲,最大USART_REC_LEN个字节.	上位机
 //bit15，	接收完成标志
 //bit14，	接收到0x0d
 //bit13~0，	接收到的有效字节数目
-u8 USART2_RX_STA=0;       //接收状态标记	  
+u16 USART2_RX_STA=0;       //接收状态标记	  
 
 //初始化IO 串口2 
 //bound:波特率
@@ -250,6 +251,7 @@ void uart2_init(u32 bound)
 
 u8 flag_frame_sync_usart2=0;//串口2数据帧同步标志位
 extern u8 flag_safe_soc;//安全芯片是否可用标志位。0：可用；1：不可用；
+extern u8 flag_safe_soc_ok;//安全芯片超时与应答。1：未应答；0：已应答；
 void USART2_IRQHandler(void)                	//串口2中断服务程序
 	{
 	u8 Res;		//只可以存放一个字节的数据
@@ -262,6 +264,7 @@ void USART2_IRQHandler(void)                	//串口2中断服务程序
 		if(Res=='$'){flag_frame_sync_usart2=1;USART2_RX_STA=0;}
 		if(flag_frame_sync_usart2==1){//开始本次接收
 			flag_safe_soc=0;//安全芯片可用
+			
 //		if(main_busy==1){//认证帧组帧时，不允许被新帧打断
 //			main_busy=0;
 //			USART_RX_STA=0;
@@ -275,7 +278,8 @@ void USART2_IRQHandler(void)                	//串口2中断服务程序
 				else {
 					USART2_RX_STA|=0x8000;	//接收完成了
 					flag_frame_sync_usart2=0;//准备下次接收
-//					USART_ITConfig(USART1, USART_IT_RXNE, DISABLE);//关闭中断
+					flag_safe_soc_ok=0;//安全芯片应答了
+					USART_ITConfig(USART2, USART_IT_RXNE, DISABLE);//关闭中断
 					} 
 				}
 			 else //还没收到0X0D
@@ -295,7 +299,46 @@ void USART2_IRQHandler(void)                	//串口2中断服务程序
 //#ifdef OS_TICKS_PER_SEC	 	//如果时钟节拍数定义了,说明要使用ucosII了.
 //	OSIntExit();  											 
 //#endif
-} 
+}
+
+
+//void USART2_IRQHandler(void)                	//串口2中断服务程序
+//	{
+//	u8 Res;		//只可以存放一个字节的数据
+//	#ifdef OS_TICKS_PER_SEC	 	//如果时钟节拍数定义了,说明要使用ucosII了.
+//		OSIntEnter();    
+//	#endif
+//	if(USART_GetITStatus(USART2, USART_IT_RXNE) != RESET)  //接收中断(接收到的数据必须是0x0d 0x0a结尾)
+//		{
+//			Res =USART_ReceiveData(USART2);//(USART2->DR);	//读取接收到的数据
+//			
+//			if((USART2_RX_STA&0x8000)==0)//接收未完成
+//					{
+//						if(USART2_RX_STA&0x40)//接收到了0x0d
+//							{
+//							if(Res!=0x0a) 
+//							  USART2_RX_STA=0; //接收错误,重新开始
+//							  else USART2_RX_STA|=0x80;	 //接收完成了 
+//							}
+//						  else //还没收到0X0D
+//							{	
+//							if(Res==0x0d)  USART2_RX_STA|=0x40;
+//							else
+//								{
+//								USART2_RX_BUF[USART2_RX_STA&0X3F]=Res ;
+//								USART2_RX_STA++;
+//								if(USART2_RX_STA>(USART2_REC_LEN-1))
+//								   USART2_RX_STA=0;//接收数据错误,重新开始接收	  
+//								}		 
+//							}
+//					}   		 
+//       } 
+//#ifdef OS_TICKS_PER_SEC	 	//如果时钟节拍数定义了,说明要使用ucosII了.
+//	OSIntExit();  											 
+//#endif
+//} 
+
+ 
 #endif
 
 

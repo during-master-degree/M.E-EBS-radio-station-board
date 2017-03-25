@@ -1,27 +1,13 @@
 #include "gray.h"
-//////////////////////////////////////////////////////////////////////////////////	 
-//本程序只供学习使用，未经作者许可，不得用于其它任何用途
-//ALIENTEK战舰STM32开发板
-//蜂鸣器驱动代码	   
-//正点原子@ALIENTEK
-//技术论坛:www.openedv.com
-//修改日期:2012/9/2
-//版本：V1.0
-//版权所有，盗版必究。
-//Copyright(C) 广州市星翼电子科技有限公司 2009-2019
-//All rights reserved									  
-////////////////////////////////////////////////////////////////////////////////// 	   
 
-//初始化PB8为输出口.并使能这个口的时钟		    
-//蜂鸣器初始化
-void encode(
-			char bitin[],      /*待编码的数据*/
-			char code[]		/*编码后的数据有这样的关系 code[ 24]={bitin[11]--bitin[0],Reg[10],Reg[0],parity} 构成*/
+void gray_encode(
+		unsigned char bitin[],      /*待编码的数据*/
+		unsigned char code[]		/*编码后的数据有这样的关系 code[ 24]={bitin[11]--bitin[0],Reg[10],Reg[0],parity} 构成*/
 			)      
 {	
-	char Reg[11]={0};             /*11个寄存器初始化为0*/
-	char i=0,j=0,sum=0;                        /*循环控制变量*/
-	char charer_value[12];			/*中间变量节点*/
+	unsigned char Reg[11]={0};             /*11个寄存器初始化为0*/
+	unsigned char i=0,j=0,sum=0;                        /*循环控制变量*/
+	unsigned char charer_value[12];			/*中间变量节点*/
 	
 	/*=============根据生成系统码的乘除法电路得到以下关系====================================================*/
 	for(i=0;i<M;i++)
@@ -64,11 +50,11 @@ void encode(
 }
 
 
-char decode_error_catch(char r1_code[24],char de_out[24]) /*修正的捕错译码*/
+u8 decode_error_catch(u8 r1_code[24],u8 de_out[24]) /*修正的捕错译码*/
 {
 	char de_reg[11]={0};
 	char r_code[23]={0};
-	char T=0;
+//	char T=0;
 	char middle=0;
 	char flag=0,sum=0;
 	char correct_bit=0;
@@ -106,7 +92,7 @@ char decode_error_catch(char r1_code[24],char de_out[24]) /*修正的捕错译码*/
 
 /*==========根据伴随式的重量大小，进行纠错译码======================*/
   if(weight<=3)
-	{  T=1;                 /*错误均在后11位伴随式的值即为错误图样*/
+	{//  T=1;                 /*错误均在后11位伴随式的值即为错误图样*/
   for(i=0;i<11;i++)
 	  charer[i]=de_reg[i];          /*charer值即为错误图样*/
   
@@ -131,7 +117,7 @@ char decode_error_catch(char r1_code[24],char de_out[24]) /*修正的捕错译码*/
 		  weight=weight+charer[i];
 
 	  if (weight<=2)
-		{  T=1;
+		{//  T=1;
 	  r_code[(6+flag)%23]=(r_code[(6+flag)%23]+1)%2;}          /*信息位x^16纠错*/
 	  else
 	  {   
@@ -152,7 +138,7 @@ char decode_error_catch(char r1_code[24],char de_out[24]) /*修正的捕错译码*/
 		  weight=weight+charer[i];
 
 		  if(weight<=2)
-			{  T=1;
+			{ // T=1;
 		  r_code[(5+flag)%23]=(r_code[(5+flag)%23]+1)%2;           /*信息位x^17纠错*/
 		  }
 		  else 

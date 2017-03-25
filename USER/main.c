@@ -44,6 +44,7 @@ u8 frame_safe[40]={0};//认证帧重组，发给安全芯片
 u8 index_frame_safe=0;//认证帧数组下表，发给安全芯片
 u8 index_safe_times=0;//认证帧发送次数计数器
 u8 flag_safe_frame=0;//本帧是认证帧
+u8 flag_safe_soc_ok=0;//安全芯片超时与应答。1：未应答；0：已应答；
 int main(void)
 {	 
 	u16 freqset=FREQUENCY_MIN;//接收、发射频点
@@ -52,16 +53,15 @@ int main(void)
 	signed char i=0;//字节转比特流
 	u16 len,len1;
 	u16 fm_total_bytes=0;//数据帧总有效字节数量
-	u8 fre_scan_interrupted=0;//频谱扫描被中断标志位。0：未被终端；1：被中断；
 
 	u16 safe_total_bytes=0;//安全帧总字节数
-	u8 safe_frame_byte[110]={0};//安全芯片回传的数据帧序列字节流缓冲区
-	u8 safe_frame_byte_index=0;//安全芯片回传的数据帧序列字节流缓冲区下标
 	u8 safe_mingwen[84]={0};//84bits明文消息的二进制码
 	u8 safe_miwen[384]={0};//384bits安全芯片返回的密文消息
 	u8 safe_mingwen_index=0;
 	u16 safe_miwen_index=0;
-
+	u8 before_gray[12]={0};//格雷编码前的12位的串
+	u8 after_gray[24]={0};//格雷编码后的24位的串
+	
 //	u16 times=0;
 
 //	u8 bit_sync[14]={1,0,1,0,1,0,1,0,1,0,1,0,1,0};//位同步头
@@ -70,10 +70,11 @@ int main(void)
 	delay_init();	    	 //延时函数初始化	  
 	NVIC_Configuration(); 	 //设置NVIC中断分组2:2位抢占优先级，2位响应优先级
 	uart_init(115200);	 	//串口1初始化为9600
-	uart2_init(115200);	 //串口2初始化为4800
+	uart2_init(4800);	 //串口2初始化为4800
 //	KEY_Init();
  	LED_Init();			     //LED端口初始化
-	TIM5_Int_Init(9999,7199);//安全芯片定期查询，1s中断一次，5秒查询一次
+	TIM5_Int_Init(2999,7199);//安全芯片定期查询，1s中断一次，5秒查询一次
+//	TIM4_Int_Init(9999,7199);//安全芯片应答超时检测
 	TIM3_Int_Init(9,7199);//1Khz的FSK方波
 	TIM7_Int_Init(4,1199);//6K周期方波
 	TIM6_Int_Init(4,719);//10k周期方波
@@ -92,77 +93,109 @@ int main(void)
 	RDA5820_Freq_Set(send_frequency);	//设置频率
  	while(1)
 	{
-
-		if(USART2_RX_STA&0x8000)
-		{					   
-			len1=USART2_RX_STA&0x3fff;//得到此次接收到的数据长度
-
-			if(USART2_RX_BUF[0]=='$'){
-				if(USART2_RX_BUF[len1-1]==XOR(USART2_RX_BUF,len1-1)){
-					safe_frame_byte_index=0;
-					safe_mingwen_index=0;
-					safe_miwen_index=0;
- /*******************************************安全芯片连接反馈帧**********************************************************************************/
-					if((USART2_RX_BUF[1]=='s')&&(USART2_RX_BUF[2]=='a')&&(USART2_RX_BUF[3]=='f')&&(USART2_RX_BUF[4]=='_')&&(USART2_RX_BUF[5]=='_')){//连接帧
-						flag_safe_soc=0;//标记安全芯片可用
-				//		printf("safe chip, timer checkd!\r\n");
-						USART2_RX_STA=0;//处理完毕，允许接收下一帧
-					}
- /*******************************************安全芯片认证数据回传帧**********************************************************************************/
-				 	else if((USART2_RX_BUF[1]=='d')&&(USART2_RX_BUF[2]=='a')&&(USART2_RX_BUF[3]=='t')&&(USART2_RX_BUF[4]=='_')){//连接帧
-						flag_safe_soc=0;//标记安全芯片可用					
-
-						safe_total_bytes=USART2_RX_BUF[6]*256+USART2_RX_BUF[7];//得到密文总的长度
-						for(t=0;t<safe_total_bytes;t++){//把密文拆成比特流
-							for (i=3;i>=0;i--)
-							{
-								safe_miwen[safe_miwen_index]=(USART2_RX_BUF[t]&(0x01<<i))?1:0; 
-								safe_miwen_index++;
-							}
-						}
-						//明文密文开始格雷编码，组帧，发送
-
-
-
-
-
-
-						for(t=0;t<safe_total_bytes;t++){
-							safe_miwen[safe_miwen_index]=USART2_RX_BUF[t+8]-0x30;
-							safe_miwen_index++;
-						}
-
-						fm_frame_index_bits=25;//FM比特流数组重置
-						for(t=0;t<fm_frame_index_byte;t++){
-							for (i=3;i>=0;i--)
-							{
-								fm_frame_bits[fm_frame_index_bits]=(fm_frame_byte[t]&(0x01<<i))?1:0; 
-								fm_frame_index_bits++;
-							}
-						}
-						TIM_Cmd(TIM3, ENABLE); //使能TIMx
-						TIM_Cmd(TIM6, ENABLE); //使能TIMx
-						TIM_Cmd(TIM7, ENABLE); //使能TIMx
-
-						USART2_RX_STA=0;//处理完毕，允许接收下一帧
-					}
-				 }//end of XOR
-				 }//end of check '$'
+//		if(USART2_RX_STA&0x8000)
+//		{					   
+//			len=USART2_RX_STA&0x3fff;//得到此次接收到的数据长度
 //			for(t=0;t<len;t++)
 //			{
 //				USART_SendData(USART2, USART2_RX_BUF[t]);  //向串口2发送数据
 //				while(USART_GetFlagStatus(USART2,USART_FLAG_TC)!=SET);//等待发送结束
 //			}
-			USART2_RX_STA=0;
-		}
+//			printf("\r\n\r\n");  //插入换行
+//			USART2_RX_STA=0;
+//		}
+/******************************************************************串口2接收数据************************************************************************************************/
+		if(USART2_RX_STA&0x8000)
+		{	
+			   
+			len1=USART2_RX_STA&0x3fff;//得到此次接收到的数据长度
+
+			if(USART2_RX_BUF[0]=='$'){
+				if(USART2_RX_BUF[len1-1]==XOR(USART2_RX_BUF,len1-1)){
+		//			safe_frame_byte_index=0;
+		//			safe_mingwen_index=0;
+					safe_miwen_index=0;
+ 					/*******************************************安全芯片连接反馈帧**********************************************************************************/
+					if((USART2_RX_BUF[1]=='s')&&(USART2_RX_BUF[2]=='a')&&(USART2_RX_BUF[3]=='f')&&(USART2_RX_BUF[4]=='_')&&(USART2_RX_BUF[5]=='_')){//连接帧
+						flag_safe_soc=0;//标记安全芯片可用
+				//		printf("safe chip, timer checkd!\r\n");
+						USART2_RX_STA=0;//处理完毕，允许接收下一帧
+						LED0=1;//关闭警示灯
+						USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//打开中断
+					}
+ 					/*******************************************安全芯片认证数据回传帧**********************************************************************************/
+				 	else if((flag_safe_soc_ok==0)&&(USART2_RX_BUF[1]=='e')&&(USART2_RX_BUF[2]=='c')&&(USART2_RX_BUF[3]=='c')&&(USART2_RX_BUF[4]=='_')&&(USART2_RX_BUF[5]=='_')){//连接帧
+						flag_safe_soc=0;//标记安全芯片可用					
+
+						safe_total_bytes=USART2_RX_BUF[7]*256+USART2_RX_BUF[8];//得到密文总的长度
+						for(t=0;t<safe_total_bytes;t++){//把密文拆成比特流
+							for (i=3;i>=0;i--)
+							{
+								safe_miwen[safe_miwen_index]=((USART2_RX_BUF[t]-0x30)&(0x01<<i))?1:0; 
+								safe_miwen_index++;
+							}
+						}
+						//明文密文开始格雷编码，组帧，发送
+						fm_frame_index_bits=25;//FM比特流数组重置
+						for (t=0;t<(safe_mingwen_index/12);t++)//格雷编码次数
+						{
+							for (i=0;i<12;i++)
+							{
+								before_gray[i]=safe_mingwen[t*12+i];
+							}
+							gray_encode(before_gray,after_gray);
+							for (i=0;i<24;i++)
+							{
+								fm_frame_bits[fm_frame_index_bits]=after_gray[i];
+								fm_frame_index_bits++;
+							}
+							
+						}
+						for (t=0;t<(safe_miwen_index/12);t++)//格雷编码次数
+						{
+							for (i=0;i<12;i++)
+							{
+								before_gray[i]=safe_miwen[t*12+i];
+							}
+							gray_encode(before_gray,after_gray);
+							for (i=0;i<24;i++)
+							{
+								fm_frame_bits[fm_frame_index_bits]=after_gray[i];
+								fm_frame_index_bits++;
+							}
+							
+						}
+
+						TIM_Cmd(TIM3, ENABLE); //使能TIMx
+						TIM_Cmd(TIM6, ENABLE); //使能TIMx
+						TIM_Cmd(TIM7, ENABLE); //使能TIMx
+
+						USART2_RX_STA=0;//处理完毕，允许接收下一帧
+						usart2_works=0;//发送完毕，清理标志位
+						fm_frame_index_byte=0;//不需要重传了，清除串口1收到的字节
+					}
+ 					/*******************************************安全芯片请求重传**********************************************************************************/
+				 	else if((USART2_RX_BUF[1]=='r')&&(USART2_RX_BUF[2]=='t')&&(USART2_RX_BUF[3]=='s')&&(USART2_RX_BUF[4]=='_')&&(USART2_RX_BUF[5]=='_')){//连接帧
+					   safe_soc();
+					}else {USART2_RX_STA=0;USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);usart2_works=0;}
+				 }else{safe_soc();USART2_RX_STA=0;USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);}//end of XOR，XOR出错请求重传
+				 }else {USART2_RX_STA=0;USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);}//end of check '$'
+
+
+		}else {USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);}
 
 
 
+
+/******************************************************************串口1接收的数据帧，发送处理************************************************************************************/
 		if(flag_byte_ready==1){//数据保存本地成功
 			usart1_works=9;//数据无线传输中
 			if(flag_safe_frame==1){//认证帧
-				safe_soc();
-				safe_mingwen_index=0;
+				safe_soc();//把明文发送给安全芯片
+				flag_safe_soc_ok=1;
+				TIM5->ARR=2999;//重新状态定时器的值
+				usart2_works=3;//标记串口2刚发送完明文
+				safe_mingwen_index=0;//将明文拆为比特流
 				for(t=0;t<21;t++){
 					for (i=3;i>=0;i--)
 					{
@@ -183,6 +216,8 @@ int main(void)
 				TIM_Cmd(TIM3, ENABLE); //使能TIMx
 				TIM_Cmd(TIM6, ENABLE); //使能TIMx
 				TIM_Cmd(TIM7, ENABLE); //使能TIMx
+
+				
 			}
 //			flag_frame_processing=1;
 //			for (temp_frame_byte_index=0;temp_frame_byte_index<fm_frame_index_bits/4;temp_frame_byte_index++)
@@ -196,13 +231,17 @@ int main(void)
 //				while(USART_GetFlagStatus(USART2,USART_FLAG_TC)!=SET);//等待发送结束
 //			}
 
-
 			flag_byte_ready=0;//处理完毕，清零
-			fm_frame_index_byte=0;//字节流数组清空
-			USART_RX_STA=0;//处理完毕，允许接收下一帧
+			if(usart2_works==0)	{
+				fm_frame_index_byte=0;//字节流数组清空
+				USART_RX_STA=0;//处理完毕，允许接收下一帧
+			}
 			flag_safe_frame=0;//清除认证帧标志位
-		}	
-
+			usart1_works=0;//处理完毕，标志清零
+		}
+		
+			
+/******************************************************************串口1接收数据************************************************************************************************/
 	   if((USART_RX_STA&0x8000)&&(flag_byte_ready==0))
 		{					   
 			len=USART_RX_STA&0x3fff;//得到此次接收到的数据长度
@@ -210,7 +249,7 @@ int main(void)
 			if(USART_RX_BUF[0]=='$'){
 				if(USART_RX_BUF[len-1]==XOR(USART_RX_BUF,len-1)){
 					index_frame_send=0;
- /*******************************************子板链接判断帧**********************************************************************************/
+ 					/*******************************************子板链接判断帧************************************************/
 					if((USART_RX_BUF[1]=='r')&&(USART_RX_BUF[2]=='d')&&(USART_RX_BUF[3]=='y')&&(USART_RX_BUF[4]=='_')){//连接帧
 						usart1_works=1;	//收到连接帧
 						 frame_send_buf[index_frame_send]='$';
@@ -240,7 +279,7 @@ int main(void)
 						 USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
 						 usart1_works=0;//处理完，标志空闲
 					}
- /*******************************************频谱扫描帧**********************************************************************************/					
+ 					/*******************************************频谱扫描帧*************************************************************/					
 					else if((USART_RX_BUF[1]=='f')&&(USART_RX_BUF[2]=='r')&&(USART_RX_BUF[3]=='e')&&(USART_RX_BUF[4]=='_')){//频谱扫描帧
 						USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//频谱扫描帧发送过程中允许被中断，打开中断
 						usart1_works=3;//接收到频谱扫描帧
@@ -282,14 +321,13 @@ int main(void)
 							for(t=0;t<index_frame_send;t++)
 							{
 								if(usart1_works==0){
-									fre_scan_interrupted=1;
 									break;
 								}
 								USART_SendData(USART1, frame_send_buf[t]);//向串口发送数据
 								while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
 							}
 							if(usart1_works==0){
-								fre_scan_interrupted=1;
+
 								break;
 							}
 						//	delay_ms(10);
@@ -301,14 +339,11 @@ int main(void)
 
 						 RDA5820_TX_Mode();			//频谱扫描之后切换回发送模式
 						 RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
-						 delay_ms(20);
-			//			 if(fre_scan_interrupted==0){//不是被中断时，清零；若是被中断，则不能清零					 
-						 	USART_RX_STA=0;//处理完毕，允许接收下一帧
-		//				 }
-						 fre_scan_interrupted=0;//归零处理
+						 delay_ms(20);					 
+						 USART_RX_STA=0;//处理完毕，允许接收下一帧
 						 usart1_works=0;//处理完，标志清零
 					}
- /*******************************************控制帧**********************************************************************************/
+ 					/*******************************************控制帧*************************************************************/
 					else if((USART_RX_BUF[1]=='c')&&(USART_RX_BUF[2]=='o')&&(USART_RX_BUF[3]=='n')&&(USART_RX_BUF[4]=='_')){//控制帧
 						usart1_works=5;//接收到控制帧
 						frame_send_buf[index_frame_send]='$';
@@ -348,7 +383,7 @@ int main(void)
 						 USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
 						 usart1_works=0;//处理完毕，标志清零
 					}
- /*******************************************数据帧**********************************************************************************/					
+ 					/*******************************************数据帧*************************************************************/					
 					else if((USART_RX_BUF[1]=='d')&&(USART_RX_BUF[2]=='a')&&(USART_RX_BUF[3]=='t')&&(USART_RX_BUF[4]=='_')){//数据帧
 						usart1_works=7;//接收到数据帧
 				//		frame_resent();测试请求重传
@@ -487,13 +522,14 @@ void safe_soc(void){
 	index_frame_safe++;
 	frame_safe[index_frame_safe]='\n';
 	index_frame_safe++;
+	USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//暂时打开，只为调试
 	for(t=0;t<index_frame_safe;t++)//认证帧通过串口2发送给安全芯片
 	{
 		USART_SendData(USART2, frame_safe[t]);//向串口发送数据
 		while(USART_GetFlagStatus(USART2,USART_FLAG_TC)!=SET);//等待发送结束
 	}
-	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//暂时打开，只为调试
-	usart1_works=0;//处理完毕，标志清零
+	
+	
 
 }
 

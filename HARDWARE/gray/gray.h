@@ -1,23 +1,12 @@
-#ifndef __BEEP_H
-#define __BEEP_H	 
+#ifndef __GRAY_H
+#define __GRAY_H	 
 #include "sys.h"
-//////////////////////////////////////////////////////////////////////////////////	 
-//本程序只供学习使用，未经作者许可，不得用于其它任何用途
-//ALIENTEK战舰STM32开发板
-//蜂鸣器驱动代码	   
-//正点原子@ALIENTEK
-//技术论坛:www.openedv.com
-//修改日期:2012/9/2
-//版本：V1.0
-//版权所有，盗版必究。
-//Copyright(C) 广州市星翼电子科技有限公司 2009-2019
-//All rights reserved									  
-////////////////////////////////////////////////////////////////////////////////// 
-//蜂鸣器端口定义
+
+
 #define N 50
 #define M 12
-void encode(char bitin[],char code[]);
-char decode_error_catch(char r1_code[24],char de_out[24]);//修正的捕错译码
+void gray_encode(unsigned char bitin[],unsigned char code[]);
+u8 decode_error_catch(u8 r1_code[24],u8 de_out[24]);//修正的捕错译码
 		 				    
 #endif
 
