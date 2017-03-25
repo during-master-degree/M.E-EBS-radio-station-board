@@ -296,7 +296,7 @@ int main(void)
 		}
 		
 			
-/******************************************************************串口1接收数据************************************************************************************************/
+/**************************************串口1接收数据********************************************************************************************/
 	   if((USART_RX_STA&0x8000)&&(flag_byte_ready==0)&&(usart1_works==0))
 		{					   
 			len=USART_RX_STA&0x3fff;//得到此次接收到的数据长度
@@ -545,7 +545,10 @@ int main(void)
 void frame_resent(void){
 	u8 t=0;
 	
-if((USART_RX_BUF[1]=='d')&&(USART_RX_BUF[2]=='a')&&(USART_RX_BUF[3]=='t')&&(USART_RX_BUF[4]=='_')){//只有数据帧，才重传
+if((USART_RX_BUF[1]=='d')&&(USART_RX_BUF[2]=='a')&&(USART_RX_BUF[3]=='t')&&(USART_RX_BUF[4]=='_')||
+	(USART_RX_BUF[1]=='f')&&(USART_RX_BUF[2]=='r')&&(USART_RX_BUF[3]=='e')&&(USART_RX_BUF[4]=='_')||
+	(USART_RX_BUF[1]=='c')&&(USART_RX_BUF[2]=='o')&&(USART_RX_BUF[3]=='n')&&(USART_RX_BUF[4]=='_')
+	){//连接帧除外,帧校验和出错就重传
 	index_frame_send=0;
 	frame_send_buf[index_frame_send]='$';
 	index_frame_send++;
