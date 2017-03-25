@@ -18,7 +18,7 @@
 #define FRAME_CONTROL 84*2/4
 #define FRAME_SECURTY 470*2/4
 
-u8 flag_frame_processing=0;//收到的数据帧正在处理标志位。1:处理中;0:空闲;
+u8 flag_frame_processing=0;//收到的数据帧正在处理标志位。1:处理中;0:空闲;用于状态查询，发送FSK数据中不允许被打断
 u8 index_frame_send=0;//串口回复信息帧下标
 u8 frame_send_buf[100]={0};//串口回传缓冲区
 
@@ -28,20 +28,21 @@ u16 fm_frame_index_byte=0;//FM广播01序列字节流下标
 u8 fm_frame_byte[1100/2]={0};//FM广播帧序列字节流缓冲区
 
 void frame_resent(void);
-u8 main_busy=0;//主循环中正在执行
+u8 main_busy=0;//主循环中正在执行，用于允许被新帧打断
 u8 flag_byte_ready=0;//字节流已经全部保存到本地buffer标志位
 
 u8 temp_frame_byte[1100/2]={0};//测试数组
 u16 temp_frame_byte_index=0;//测试数组
 
-
+u8 usart2_works=0;//串口2工作状态指示。0：空闲；1：发送连接帧；2：接收连接反馈帧；3：发送数据帧；4：接收数据帧；
+u8 usart1_works=0;//串口1工作状态指示。0：空闲；1：接收连接帧；2：发送连接反馈帧；3：发送数据帧；4：接收数据帧；
 int main(void)
 {	 
 	u16 freqset=FREQUENCY_MIN;//接收、发射频点
 	u16 send_frequency=FREQUENCY_MIN;//发射频点，只保存发射的频率  
 	u16 t=0,j=0;
 	signed char i=0;//字节转比特流
-	u16 len;
+	u16 len,len1;
 	u16 fm_total_bytes=0;//数据帧总有效字节数量
 
 //	u16 times=0;
@@ -76,12 +77,26 @@ int main(void)
 	{
 		if(USART2_RX_STA&0x80)
 		{					   
-			len=USART2_RX_STA&0x3ff;//得到此次接收到的数据长度
-			for(t=0;t<len;t++)
-			{
-				USART_SendData(USART2, USART2_RX_BUF[t]);  //向串口2发送数据
-				while(USART_GetFlagStatus(USART2,USART_FLAG_TC)!=SET);//等待发送结束
-			}
+			len1=USART2_RX_STA&0x3fff;//得到此次接收到的数据长度
+
+			if(USART2_RX_BUF[0]=='$'){
+				if(USART2_RX_BUF[len1-1]==XOR(USART2_RX_BUF,len1-1)){
+					index_frame_send=0;
+ /*******************************************安全芯片连接反馈帧**********************************************************************************/
+					if((USART2_RX_BUF[1]=='s')&&(USART2_RX_BUF[2]=='a')&&(USART2_RX_BUF[3]=='f')&&(USART2_RX_BUF[4]=='_')&&(USART2_RX_BUF[5]=='_')){//连接帧
+						 printf("safe chip, timer checkd!\r\n");
+						 USART2_RX_STA=0;//处理完毕，允许接收下一帧
+						 LED0=1;
+					}
+ /*******************************************安全芯片认证数据回传帧**********************************************************************************/
+				 
+				 }//end of XOR
+				 }//end of check '$'
+//			for(t=0;t<len;t++)
+//			{
+//				USART_SendData(USART2, USART2_RX_BUF[t]);  //向串口2发送数据
+//				while(USART_GetFlagStatus(USART2,USART_FLAG_TC)!=SET);//等待发送结束
+//			}
 			USART2_RX_STA=0;
 		}
 
@@ -119,7 +134,7 @@ int main(void)
 
 	   if((USART_RX_STA&0x8000)&&(flag_byte_ready==0))
 		{					   
-			len=USART_RX_STA&0x3ff;//得到此次接收到的数据长度
+			len=USART_RX_STA&0x3fff;//得到此次接收到的数据长度
 
 			if(USART_RX_BUF[0]=='$'){
 				if(USART_RX_BUF[len-1]==XOR(USART_RX_BUF,len-1)){
