@@ -244,7 +244,7 @@ int main(void)
 		{					   
 			len=USART_RX_STA&0x3fff;//得到此次接收到的数据长度
 
-			if(USART_RX_BUF[0]=='$'){
+			if((USART_RX_BUF[0]=='$')&&(len>0)){
 				if(USART_RX_BUF[len-1]==XOR(USART_RX_BUF,len-1)){
 					index_frame_send=0;
  					/*******************************************子板链接判断帧************************************************/

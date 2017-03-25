@@ -109,11 +109,12 @@ void TIM3_IRQHandler(void)   //TIM3中断
 			TIM_Cmd(TIM6,DISABLE);
 			TIM_Cmd(TIM7,DISABLE);
 			TIM_Cmd(TIM5, ENABLE); //使能TIMx
+			USART_RX_STA=0;//处理完毕，允许接收下一帧
 			usart1_works=0;//处理完毕，标志串口1允许使用
 			usart2_works=0;//处理完毕，标志串口2允许使用
 			
 			fm_frame_index_byte=0;//字节流数组清空
-			USART_RX_STA=0;//处理完毕，允许接收下一帧
+			
 			USART2_RX_STA=0;//处理完毕，允许接收下一帧。防止循环进入
 			USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
 			USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//打开中断
@@ -215,7 +216,9 @@ void TIM5_IRQHandler(void)   //TIM5中断
 
 			secury_chip_ckeck=0;		
 		}else{
-			secury_chip_ckeck++;
+  			if(secury_chip_ckeck>200)secury_chip_ckeck=1;
+			else  secury_chip_ckeck++;
+			
 		}
 	}
 	TIM_ClearITPendingBit(TIM5, TIM_IT_Update  );  //清除TIMx更新中断标志
