@@ -21,7 +21,7 @@
 #define FRAME_SECURTY 84/4
 
 #define FLASH_SAVE_ADDR  0X08070000 //设置FLASH 保存地址(必须为偶数)
-u8 TEXT_Buffer[2]={0};
+u8 TEXT_Buffer[4]={0};
 #define SIZE sizeof(TEXT_Buffer)	 			  	//数组长度
 
 u8 index_frame_send=0;//串口回复信息帧下标
@@ -74,12 +74,12 @@ int main(void)
 	u8 after_gray[24]={0};//格雷编码后的24位的串
 	
 	u8 xor_sum=0;
-	u8 flash_temp[2]={0};
-//	u16 times=0;
+	u8 flash_temp[4]={0};
+//	u8 power_send=0;//RDA发射功率
 
 //	u8 bit_sync[14]={1,0,1,0,1,0,1,0,1,0,1,0,1,0};//位同步头
 //	u8 frame_sync[11]={1,1,1,0,0,0,1,0,0,1,0};//帧同步头	
-
+	tim3_pin_init();
 	delay_init();	    	 //延时函数初始化	  
 	NVIC_Configuration(); 	 //设置NVIC中断分组2:2位抢占优先级，2位响应优先级
 	uart_init(115200);	 	//串口1初始化为9600
@@ -91,7 +91,7 @@ int main(void)
 	TIM3_Int_Init(9,7199);//1Khz的FSK方波
 	TIM6_Int_Init(4,1199);//6K周期方波
 	TIM7_Int_Init(4,719);//10k周期方波
-	tim3_pin_init(); 
+	 
 //	LCD_Init();			 	
 // 	usmart_dev.init(72);	//初始化USMART	
 // 	Audiosel_Init();
@@ -102,9 +102,14 @@ int main(void)
 	RDA5820_Space_Set(0);	//设置步进为100Khz
 	RDA5820_TxPGA_Set(1);	//信号增益设置为3
 	RDA5820_TxPAG_Set(8);	//发射功率为最大.	
-	RDA5820_RX_Mode();			//接收模式
+	RDA5820_RX_Mode();		//接收模式
 	STMFLASH_Read(FLASH_SAVE_ADDR,(u16*)flash_temp,SIZE);
 	fre_tmp=flash_temp[0]*10+FREQUENCY_MIN;
+	
+	if(flash_temp[2]>63){
+		flash_temp[2]=8;//默认值这是为8，对应-13dbm
+	}
+
 	if((fre_tmp>FREQUENCY_MIN)&&(fre_tmp<FREQUENCY_MAX)){send_frequency=fre_tmp;}
 	else{send_frequency=FREQUENCY_MIN;}
 	RDA5820_Freq_Set(send_frequency);	//设置频率
@@ -319,7 +324,13 @@ int main(void)
 						 frame_send_buf[index_frame_send]=USART_RX_BUF[5];
 						 index_frame_send++;
 						 STMFLASH_Read(FLASH_SAVE_ADDR,(u16*)flash_temp,SIZE);
-						 frame_send_buf[index_frame_send]=flash_temp[0];
+						 frame_send_buf[index_frame_send]=flash_temp[0];//相对频点
+						 index_frame_send++;
+
+						 if(flash_temp[2]>64)flash_temp[2]=8;//值超过范围，设置为默认值8，对应-13dbm
+						 RDA5820_TxPAG_Set(flash_temp[2]);
+
+						 frame_send_buf[index_frame_send]=flash_temp[2];//发射功率
 						 index_frame_send++;
 						 frame_send_buf[index_frame_send]=XOR(frame_send_buf,index_frame_send);
 						 index_frame_send++;
@@ -439,6 +450,12 @@ int main(void)
 								RDA5820_RX_Mode();
 								RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
 								delay_ms(20);
+								break;
+							case 5://调整发射功率
+						//		RDA5820_TxPGA_Set(4);	//信号增益设置为3
+								TEXT_Buffer[2]=USART_RX_BUF[7]-13;
+								STMFLASH_Write(FLASH_SAVE_ADDR,(u16*)TEXT_Buffer,SIZE);
+								RDA5820_TxPAG_Set((USART_RX_BUF[7]-13));	//发射功率为最大.//将USART_RX_BUF[7]抬高到13以上，避免出现帧尾0x0d
 								break;
 							default:
 							break;
