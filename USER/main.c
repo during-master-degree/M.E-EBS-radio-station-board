@@ -54,8 +54,8 @@ u8 wakeup_times=0;//唤醒帧发送的次数
 int main(void)
 {	 
 	u16 freqset=FREQUENCY_MIN;//接收、发射频点
-	u16 send_frequency=FREQUENCY_MIN;//发射频点，只保存发射的频率
-	u16 fre_tmp=0;  
+	u16 send_frequency=FREQUENCY_MIN;//发射频点，只保存发射的频率 
+	u16 fre_tmp=0;//计算频点的中间变量 
 	u16 t=0,j=0;
 	signed char i=0;//字节转比特流
 	u16 len,len1;
