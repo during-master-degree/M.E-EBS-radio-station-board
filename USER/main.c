@@ -196,7 +196,7 @@ int main(void)
 						TIM_Cmd(TIM5, DISABLE); //失能TIM5
 						TIM_Cmd(TIM6, ENABLE); //使能TIM6
 						TIM_Cmd(TIM7, ENABLE); //使能TIM7
-						delay_ms(10);//让FSK信号先起振起来
+						delay_ms(20);//让FSK信号先起振起来
 						TIM_Cmd(TIM3, ENABLE); //使能TIM3
 											
 
@@ -255,7 +255,7 @@ int main(void)
 				TIM_Cmd(TIM5, DISABLE); //失能TIM5，避免产生16ms的中断干扰无线发送
 				TIM_Cmd(TIM6, ENABLE); //使能TIMx
 				TIM_Cmd(TIM7, ENABLE); //使能TIMx
-				delay_ms(10);//让FSK信号先起振起来
+				delay_ms(20);//让FSK信号先起振起来
 				TIM_Cmd(TIM3, ENABLE); //使能TIMx			
 				
 			}

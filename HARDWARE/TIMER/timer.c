@@ -113,7 +113,7 @@ void TIM3_IRQHandler(void)   //TIM3中断
 				PBout(6)=0;			
 				t=0;
 				timer_67_stop=1;
-				delay_ms(10);//让FSK信号再振一会
+				delay_ms(20);//让FSK信号再振一会
 				TIM_Cmd(TIM6,DISABLE);
 				TIM_Cmd(TIM7,DISABLE);
 				TIM_Cmd(TIM5, ENABLE); //使能TIMx
@@ -159,7 +159,7 @@ void TIM3_IRQHandler(void)   //TIM3中断
 			PBout(6)=0;			
 //			t=0;
 //			timer_67_stop=1;
-//			delay_ms(10);//让FSK信号再振一会
+			delay_ms(20);//让FSK信号再振一会
 			TIM_Cmd(TIM6,DISABLE);
 			TIM_Cmd(TIM7,DISABLE);
 			TIM_Cmd(TIM5, ENABLE); //使能TIMx
