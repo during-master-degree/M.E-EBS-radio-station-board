@@ -18,17 +18,6 @@
 #define FRAME_CONTROL 84*2/4
 #define FRAME_SECURTY 470*2/4
 
-//void RDA5820_Show_Msg(void)
-//{
-//	u8 rssi;
-//	u16 freq;
-//	freq=RDA5820_Freq_Get();				//¶ÁÈ¡ÉèÖÃµ½µÄÆµÂÊÖµ
-//	LCD_ShowNum(100,210,freq/100,3,16);		//ÏÔÊ¾ÆµÂÊÕûÊı²¿·Ö
-//	LCD_ShowNum(132,210,(freq%100)/10,1,16);//ÏÔÊ¾ÆµÂÊĞ¡Êı²¿·Ö
-//	rssi=RDA5820_Rssi_Get();				//µÃµ½ĞÅºÅÇ¿¶È
-//	LCD_ShowNum(100,230,rssi,2,16);			//ÏÔÊ¾ĞÅºÅÇ¿¶È
-//}
-
 u8 flag_frame_processing=0;//ÊÕµ½µÄÊı¾İÖ¡ÕıÔÚ´¦Àí±êÖ¾Î»¡£1:´¦ÀíÖĞ;0:¿ÕÏĞ;
 u8 index_frame_send=0;//´®¿Ú»Ø¸´ĞÅÏ¢Ö¡ÏÂ±ê
 u8 frame_send_buf[100]={0};//´®¿Ú»Ø´«»º³åÇø
@@ -38,7 +27,12 @@ u8 fm_frame_bits[1100]={1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,0,0,1,0,0,1,0};//FM¹
 u16 fm_frame_index_byte=0;//FM¹ã²¥01ĞòÁĞ×Ö½ÚÁ÷ÏÂ±ê
 u8 fm_frame_byte[1100/2]={0};//FM¹ã²¥Ö¡ĞòÁĞ×Ö½ÚÁ÷»º³åÇø
 unsigned char XOR(unsigned char *BUFF, u16 len);
+void frame_resent(void);
+u8 main_busy=0;//Ö÷Ñ­»·ÖĞÕıÔÚÖ´ĞĞ
+u8 flag_byte_ready=0;//×Ö½ÚÁ÷ÒÑ¾­È«²¿±£´æµ½±¾µØbuffer±êÖ¾Î»
 
+u8 temp_frame_byte[1100/2]={0};//²âÊÔÊı×é
+u16 temp_frame_byte_index=0;//²âÊÔÊı×é
 
 
 int main(void)
@@ -49,7 +43,7 @@ int main(void)
 	signed char i=0;//×Ö½Ú×ª±ÈÌØÁ÷
 	u16 len;
 	u16 fm_total_bytes=0;//Êı¾İÖ¡×ÜÓĞĞ§×Ö½ÚÊıÁ¿
-	u8 flag_byte_ready=0;//×Ö½ÚÁ÷ÒÑ¾­È«²¿±£´æµ½±¾µØbuffer±êÖ¾Î»
+
 //	u8 bit_sync[14]={1,0,1,0,1,0,1,0,1,0,1,0,1,0};//Î»Í¬²½Í·
 //	u8 frame_sync[11]={1,1,1,0,0,0,1,0,0,1,0};//Ö¡Í¬²½Í·	
 
@@ -58,7 +52,8 @@ int main(void)
 	uart_init(115200);	 	//´®¿Ú³õÊ¼»¯Îª9600
 //	KEY_Init();
  	LED_Init();			     //LED¶Ë¿Ú³õÊ¼»¯
-	TIM3_Int_Init(4999,7199);//10KhzµÄ¼ÆÊıÆµÂÊ£¬¼ÆÊıµ½5000Îª500ms
+	TIM5_Int_Init(4999,7199);//10KhzµÄ¼ÆÊıÆµÂÊ£¬¼ÆÊıµ½5000Îª500ms
+	TIM3_Int_Init(9,7199);//1KhzµÄ¼ÆÊıÆµÂÊ 
 //	LCD_Init();			 	
 // 	usmart_dev.init(72);	//³õÊ¼»¯USMART	
 // 	Audiosel_Init();
@@ -74,7 +69,7 @@ int main(void)
  	while(1)
 	{
 		if(flag_byte_ready==1){//Êı¾İ±£´æ±¾µØ³É¹¦
-			fm_frame_index_bits=25;//FM±ÈÌØÁ÷Êı×éÇå¿Õ
+			fm_frame_index_bits=25;//FM±ÈÌØÁ÷Êı×éÖØÖÃ
 			for(t=0;t<fm_frame_index_byte;t++){
 				for (i=3;i>=0;i--)
 				{
@@ -82,19 +77,26 @@ int main(void)
 					fm_frame_index_bits++;
 				}
 			}
-			for(t=0;t<fm_frame_index_bits;t++)
-				{
-	//				PBout(6)=fm_frame_bits[t];//»¹ĞèÒª¼ÓÎ»Í¬²½£¬Ö¡Í¬²½Í·
-					USART_SendData(USART1, fm_frame_bits[t]);//Ïò´®¿Ú·¢ËÍÊı¾İ
-					while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//µÈ´ı·¢ËÍ½áÊø
-				}
+			TIM_Cmd(TIM3, ENABLE); //Ê¹ÄÜTIMx
+			flag_frame_processing=1;
+//			for (temp_frame_byte_index=0;temp_frame_byte_index<fm_frame_index_bits/4;temp_frame_byte_index++)
+//			{
+//				temp_frame_byte[temp_frame_byte_index]=fm_frame_bits[temp_frame_byte_index*4]*8+fm_frame_bits[temp_frame_byte_index*4+1]*4+fm_frame_bits[temp_frame_byte_index*4+2]*2+fm_frame_bits[temp_frame_byte_index*4+3]*1+0x30;//ASCII 0Âë¶ÔÓ¦Ê®½øÖÆÊÇ0x30
+//			}
+
+//			for(t=0;t<fm_frame_index_bits;t++)
+//			{
+//				PBout(6)=fm_frame_bits[t];//»¹ĞèÒª¼ÓÎ»Í¬²½£¬Ö¡Í¬²½Í·
+//				delay_ms(1);
+//			//	USART_SendData(USART1, temp_frame_byte[t]);//Ïò´®¿Ú·¢ËÍÊı¾İ
+//			//	while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//µÈ´ı·¢ËÍ½áÊø
+//			}
 			flag_byte_ready=0;//´¦ÀíÍê±Ï£¬ÇåÁã
 			fm_frame_index_byte=0;//×Ö½ÚÁ÷Êı×éÇå¿Õ
 			USART_RX_STA=0;//´¦ÀíÍê±Ï£¬ÔÊĞí½ÓÊÕÏÂÒ»Ö¡
-			USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//¿ªÆôÖĞ¶Ï
 		}	
 
-	   if(USART_RX_STA&0x8000)
+	   if((USART_RX_STA&0x8000)&&(flag_byte_ready==0))
 		{					   
 			len=USART_RX_STA&0x3ff;//µÃµ½´Ë´Î½ÓÊÕµ½µÄÊı¾İ³¤¶È
 
@@ -126,10 +128,10 @@ int main(void)
 						 }
 						 //printf("\r\n×Ó°åÁ¬½ÓÖ¡\r\n");
 						 USART_RX_STA=0;//´¦ÀíÍê±Ï£¬ÔÊĞí½ÓÊÕÏÂÒ»Ö¡
-						 USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//¿ªÆôÖĞ¶Ï
 					}
  /*******************************************ÆµÆ×É¨ÃèÖ¡**********************************************************************************/					
 					else if((USART_RX_BUF[1]=='f')&&(USART_RX_BUF[2]=='r')&&(USART_RX_BUF[3]=='e')&&(USART_RX_BUF[4]=='_')){//ÆµÆ×É¨ÃèÖ¡
+						main_busy=1;
 						RDA5820_RX_Mode();			//½ÓÊÕÄ£Ê½
 						freqset=FREQUENCY_MIN;
 						RDA5820_Freq_Set(freqset);	//ÉèÖÃÆµÂÊÎª×îĞ¡Öµ					
@@ -154,15 +156,17 @@ int main(void)
 						for(j=0;j<FREQUENCY_POINT;j++){
 							
 							RDA5820_Freq_Set(freqset);//ÉèÖÃÆµÂÊ
-							delay_ms(90);//µÈ´ı10msµ÷ÆµĞÅºÅÎÈ¶¨
+							delay_ms(30);//µÈ´ı10msµ÷ÆµĞÅºÅÎÈ¶¨
 							frame_send_buf[8]=RDA5820_Rssi_Get();//µÃµ½ĞÅºÅÇ¿¶È
 							frame_send_buf[9]=XOR(frame_send_buf,index_frame_send-1);
 							for(t=0;t<index_frame_send;t++)
 							{
+								if(main_busy==0)break;
 								USART_SendData(USART1, frame_send_buf[t]);//Ïò´®¿Ú·¢ËÍÊı¾İ
 								while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//µÈ´ı·¢ËÍ½áÊø
 							}
-							delay_ms(10);
+							if(main_busy==0)break;
+							delay_ms(20);
 							frame_send_buf[7]++;
 
 							if(freqset<FREQUENCY_MAX)freqset+=10;  //ÆµÂÊÔö¼Ó100Khz
@@ -171,10 +175,8 @@ int main(void)
 
 						 RDA5820_TX_Mode();			//ÆµÆ×É¨ÃèÖ®ºóÇĞ»»»Ø·¢ËÍÄ£Ê½
 						 RDA5820_Freq_Set(send_frequency);	//ÉèÖÃÆµÂÊ£¬»»ÎªÈ«¾Ö±äÁ¿
-						 delay_ms(20);
-						 //printf("\r\nÆµÆ×É¨ÃèÖ¡\r\n");
+						 delay_ms(20);					 
 						 USART_RX_STA=0;//´¦ÀíÍê±Ï£¬ÔÊĞí½ÓÊÕÏÂÒ»Ö¡
-						 USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//¿ªÆôÖĞ¶Ï
 					}
  /*******************************************¿ØÖÆÖ¡**********************************************************************************/
 					else if((USART_RX_BUF[1]=='c')&&(USART_RX_BUF[2]=='o')&&(USART_RX_BUF[3]=='n')&&(USART_RX_BUF[4]=='_')){//¿ØÖÆÖ¡
@@ -211,10 +213,11 @@ int main(void)
 						 }
 						 //printf("\r\n¿ØÖÆÖ¡\r\n");
 						 USART_RX_STA=0;//´¦ÀíÍê±Ï£¬ÔÊĞí½ÓÊÕÏÂÒ»Ö¡
-						 USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//¿ªÆôÖĞ¶Ï
 					}
  /*******************************************Êı¾İÖ¡**********************************************************************************/					
 					else if((USART_RX_BUF[1]=='d')&&(USART_RX_BUF[2]=='a')&&(USART_RX_BUF[3]=='t')&&(USART_RX_BUF[4]=='_')){//Êı¾İÖ¡
+				//		frame_resent();²âÊÔÇëÇóÖØ´«
+				//		delay_ms(100);
 						frame_send_buf[index_frame_send]='$';
 						index_frame_send++;
 						frame_send_buf[index_frame_send]='d';
@@ -248,11 +251,15 @@ int main(void)
 					}else{
 						flag_byte_ready=0;//Êı¾İÖ¡×Ö½ÚÁ÷±£´æµ½±¾µØ£¬Î´³É¹¦
 						fm_frame_index_byte=0;//×Ö½ÚÁ÷Êı×éÇå¿Õ
+						USART_RX_STA=0;
 //						printf("\r\nData frame error.\r\n");
 						}
-					}//else{printf("Frame anomalous!");}
-				}//else{printf("Verify bits wrong!");}
-		    }//if(USART_RX_BUF[0]=='$')
+					}else {USART_RX_STA=0;}//else{printf("Frame anomalous!");}
+				}else {//Êı¾İÖ¡µÄĞ£ÑéºÍ³ö´íÊ±£¬ÇëÇóÖØ´«
+					USART_RX_STA=0;
+					frame_resent();//ÇóÖØ´«		
+					}//else{printf("Verify bits wrong!");}
+		    }else {USART_RX_STA=0;}//if(USART_RX_BUF[0]=='$')
 						
 		}//if(USART_RX_STA&0x8000)
 			
@@ -274,7 +281,47 @@ unsigned char XOR(unsigned char *BUFF, u16 len)
 	return result;
 }
 
+void frame_resent(void){
+	u16 t=0;
 
+if((USART_RX_BUF[1]=='d')&&(USART_RX_BUF[2]=='a')&&(USART_RX_BUF[3]=='t')&&(USART_RX_BUF[4]=='_')){//Êı¾İÖ¡
+	index_frame_send=0;
+	frame_send_buf[index_frame_send]='$';
+	index_frame_send++;
+	frame_send_buf[index_frame_send]='r';
+	index_frame_send++;
+	frame_send_buf[index_frame_send]='s';
+	index_frame_send++;
+	frame_send_buf[index_frame_send]='t';
+	index_frame_send++;
+	frame_send_buf[index_frame_send]='_';
+	index_frame_send++;
+	frame_send_buf[index_frame_send]='_';
+	index_frame_send++;
+	frame_send_buf[index_frame_send]=0;
+	index_frame_send++;
+	frame_send_buf[index_frame_send]=0;//ÖØ´«Êı¾İÖ¡ÀàĞÍ¡£1£º¹ã²¥»½ĞÑÖ¡£»2£ºµ¥²¥»½ĞÑÖ¡£»3£º×é²¥»½ĞÑÖ¡£»4£º¿ØÖÆÖ¡£»5£ºÈÏÖ¤Ö¡£»
+	index_frame_send++;
+	frame_send_buf[index_frame_send]=XOR(frame_send_buf,index_frame_send);
+	index_frame_send++;
+
+//	fm_total_bytes=USART_RX_BUF[6]*256+USART_RX_BUF[7];
+//	if((fm_total_bytes==FRAME_WAKEUP_BROADCAST )||(fm_total_bytes==FRAME_WAKEUP_UNICAST  )||(fm_total_bytes==FRAME_WAKEUP_MULTICAST  )||(fm_total_bytes==FRAME_CONTROL  )||(fm_total_bytes==FRAME_SECURTY  )){
+//
+//	}
+
+	for(t=0;t<index_frame_send;t++)
+	{
+		USART_SendData(USART1, frame_send_buf[t]);//Ïò´®¿Ú·¢ËÍÊı¾İ
+		while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//µÈ´ı·¢ËÍ½áÊø
+	}
+	flag_byte_ready=0;//Êı¾İÖ¡×Ö½ÚÁ÷±£´æµ½±¾µØ£¬Î´³É¹¦
+	fm_frame_index_byte=0;//×Ö½ÚÁ÷Êı×éÇå¿Õ
+
+
+	}
+
+}
 
 
 

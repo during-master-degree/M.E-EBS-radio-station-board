@@ -130,27 +130,35 @@ void uart_init(u32 bound){
 
 }
 
+extern u8 main_busy;//主循环中正在执行
+extern u8 flag_frame_processing;//收到的数据帧正在处理标志位。1:处理中;0:空闲;
 void USART1_IRQHandler(void)                	//串口1中断服务程序
 	{
 	u8 Res;
 //#ifdef OS_TICKS_PER_SEC	 	//如果时钟节拍数定义了,说明要使用ucosII了.
 //	OSIntEnter();    
 //#endif
+
+
 	if(USART_GetITStatus(USART1, USART_IT_RXNE) != RESET)  //接收中断(接收到的数据必须是0x0d 0x0a结尾)
 		{
 		Res =USART_ReceiveData(USART1);//(USART1->DR);	//读取接收到的数据
-		
-		if((USART_RX_STA&0x8000)==0)//接收未完成
-			{
-			if(USART_RX_STA&0x4000)//接收到了0x0d
+		if(main_busy==1){
+			main_busy=0;
+			USART_RX_STA=0;
+		}
+
+		if(((USART_RX_STA&0x8000)==0)&&(flag_frame_processing==0))//接收未完成
+		{
+			 if(USART_RX_STA&0x4000)//接收到了0x0d
 				{
 				if(Res!=0x0a)USART_RX_STA=0;//接收错误,重新开始
 				else {
 					USART_RX_STA|=0x8000;	//接收完成了
-					USART_ITConfig(USART1, USART_IT_RXNE, DISABLE);//关闭中断
+//					USART_ITConfig(USART1, USART_IT_RXNE, DISABLE);//关闭中断
 					} 
 				}
-			else //还没收到0X0D
+			 else //还没收到0X0D
 				{	
 				if(Res==0x0d)USART_RX_STA|=0x4000;
 				else
@@ -160,7 +168,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 					if(USART_RX_STA>(USART_REC_LEN-1))USART_RX_STA=0;//接收数据错误,重新开始接收	  
 					}		 
 				}
-			}   		 
+		}   		 
      } 
 //#ifdef OS_TICKS_PER_SEC	 	//如果时钟节拍数定义了,说明要使用ucosII了.
 //	OSIntExit();  											 
