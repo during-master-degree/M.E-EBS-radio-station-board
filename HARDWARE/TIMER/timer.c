@@ -112,8 +112,8 @@ void TIM3_IRQHandler(void)   //TIM3中断
 				TIM_Cmd(TIM3,DISABLE);
 				PBout(6)=0;			
 				t=0;
-				timer_67_stop=1;
 				delay_ms(20);//让FSK信号再振一会
+				timer_67_stop=1;//多震荡20ms后关闭FSK
 				TIM_Cmd(TIM6,DISABLE);
 				TIM_Cmd(TIM7,DISABLE);
 				TIM_Cmd(TIM5, ENABLE); //使能TIMx
@@ -148,8 +148,10 @@ void TIM3_IRQHandler(void)   //TIM3中断
 				}else{
 					delay_index++;
 				}
-				if(delay_index==FSK_EXTEND)timer_67_stop=1;//FSK信号多震荡10ms，以免漏掉有用信号，然后将其关闭
-				if((delay_index==FRAME_INTERVAL-FSK_EXTEND)&&(wakeup_times_index<(wakeup_times-1)))timer_67_stop=0;//FSK信号多震荡10ms，以免漏掉有用信号，将其提前打开  
+				if(delay_index==FSK_EXTEND)timer_67_stop=1;//FSK信号多震荡20ms，以免漏掉有用信号，然后将其关闭
+
+				//FSK信号提前震荡20ms，以免漏掉有用信号。条件判断的后一个条件，避免最后一次发送时，多震荡20ms，而退出
+				if((delay_index==FRAME_INTERVAL-FSK_EXTEND)&&(wakeup_times_index<(wakeup_times-1)))timer_67_stop=0;  
 								
 			}
 		}else if((flag_is_wakeup_frame==1)&&(wakeup_times_index>=wakeup_times)&&(wakeup_times!=0)){//多次发送完毕，清理
@@ -161,7 +163,7 @@ void TIM3_IRQHandler(void)   //TIM3中断
 			PBout(6)=0;			
 //			t=0;
 //			timer_67_stop=1;
-			delay_ms(20);//让FSK信号再振一会
+//			delay_ms(20);//让FSK信号再振一会。（这三句都不需要了，已经在上边做过了）
 			TIM_Cmd(TIM6,DISABLE);
 			TIM_Cmd(TIM7,DISABLE);
 			TIM_Cmd(TIM5, ENABLE); //使能TIMx

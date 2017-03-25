@@ -52,6 +52,9 @@ u8 flag_is_wakeup_frame=0;//当前帧是唤醒帧的标志位
 u8 wakeup_times=0;//唤醒帧发送的次数
 
 u8 flag_voice_broad=0;//是否正在广播。0：没有广播；1：正在广播；
+
+extern u8 timer_67_stop;//定时器6,7被停止标志位。0：未被终止；1：被终止；
+
 int main(void)
 {	 
 	u16 freqset=FREQUENCY_MIN;//接收、发射频点
@@ -86,8 +89,8 @@ int main(void)
 	TIM5_Int_Init(9999,7199);//安全芯片定期查询，1s中断一次，5秒查询一次
 	TIM4_Int_Init(2999,7199);//安全芯片应答超时检测
 	TIM3_Int_Init(9,7199);//1Khz的FSK方波
-	TIM7_Int_Init(4,1199);//6K周期方波
-	TIM6_Int_Init(4,719);//10k周期方波
+	TIM6_Int_Init(4,1199);//6K周期方波
+	TIM7_Int_Init(4,719);//10k周期方波
 	tim3_pin_init(); 
 //	LCD_Init();			 	
 // 	usmart_dev.init(72);	//初始化USMART	
@@ -192,9 +195,12 @@ int main(void)
 								fm_frame_index_bits++;
 							}							
 						}
+
+						
 						RDA5820_TX_Mode();			//发送模式
 						RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
 						TIM_Cmd(TIM5, DISABLE); //失能TIM5
+						timer_67_stop=0;//打开FSK震荡
 						TIM_Cmd(TIM6, ENABLE); //使能TIM6
 						TIM_Cmd(TIM7, ENABLE); //使能TIM7
 						delay_ms(20);//让FSK信号先起振起来
@@ -255,6 +261,7 @@ int main(void)
 				RDA5820_TX_Mode();//发送模式
 				RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
 				TIM_Cmd(TIM5, DISABLE); //失能TIM5，避免产生16ms的中断干扰无线发送
+				timer_67_stop=0;//打开FSK震荡
 				TIM_Cmd(TIM6, ENABLE); //使能TIMx
 				TIM_Cmd(TIM7, ENABLE); //使能TIMx
 				delay_ms(20);//让FSK信号先起振起来
