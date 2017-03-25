@@ -157,7 +157,7 @@ void TIM3_IRQHandler(void)   //TIM3中断
 				if((delay_index==FRAME_INTERVAL_CONTROL-FSK_EXTEND)&&(wakeup_times_index<(wakeup_times-1)))timer_67_stop=0;  
 								
 			}
-		}else if((flag_is_wakeup_frame==1)&&(wakeup_times_index>=wakeup_times)&&(wakeup_times!=0)){//多次发送完毕，清理
+		}else if((flag_is_wakeup_frame==2)&&(wakeup_times_index>=wakeup_times)&&(wakeup_times!=0)){//多次发送完毕，清理
 			flag_is_wakeup_frame=0;//多次唤醒帧发送完毕
 			wakeup_times_index=0;
 			wakeup_times=0;

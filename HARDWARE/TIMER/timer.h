@@ -15,7 +15,7 @@
 //////////////////////////////////////////////////////////////////////////////////   
 #define CHIP_CHECK_FREQUENCY 6
 #define FRAME_INTERVAL 100//唤醒帧：相邻两帧的间隔
-#define FRAME_INTERVAL_CONTROL 100//控制帧：相邻两帧的间隔
+#define FRAME_INTERVAL_CONTROL 200//控制帧：相邻两帧的间隔
 #define FSK_EXTEND 20//fsk信号比实际控制信号前后各延长的毫秒数	
 
 void TIM3_Int_Init(u16 arr,u16 psc);
