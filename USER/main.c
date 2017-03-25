@@ -19,6 +19,7 @@
 #define FRAME_WAKEUP_MULTICAST 168*2/4
 #define FRAME_CONTROL 84*2/4
 #define FRAME_SECURTY 84/4
+#define MAX_POWER 64-1
 
 #define FLASH_SAVE_ADDR  0X08070000 //设置FLASH 保存地址(必须为偶数)
 u8 TEXT_Buffer[4]={0};
@@ -42,6 +43,7 @@ u16 temp_frame_byte_index=0;//测试数组
 u8 usart2_works=0;//串口2工作状态指示。0：空闲；1：发送连接帧；2：接收连接反馈帧；3：发送数据帧；4：接收数据帧；
 u8 usart1_works=0;//串口1工作状态指示。0：空闲；1：接收连接帧；2：发送连接反馈帧；3：接收频谱扫描帧；4：发送频谱扫描反馈帧；
 				  //5:接收控制帧;6:发送控制反馈帧;7:接收数据帧;8:发送数据反馈帧(包括重传帧);9：数据帧无线传输中(不允许被打断)；
+				  //10:接收多链路接入申请帧;11:发送多链路接入应答帧;
 u8 frame_safe[40]={0};//认证帧重组，发给安全芯片
 u8 index_frame_safe=0;//认证帧数组下表，发给安全芯片
 u8 index_safe_times=0;//认证帧发送次数计数器
@@ -49,7 +51,7 @@ u8 flag_safe_frame=0;//本帧是认证帧
 u8 flag_safe_soc_ok=0;//安全芯片超时与应答。1：未应答（不可用）；0：已应答（可用）；
 
 u8 flag_is_wakeup_frame=0;//当前帧是唤醒帧的标志位
-u8 wakeup_times=0;//唤醒帧发送的次数
+u16 wakeup_times=0;//唤醒帧发送的次数
 
 u8 flag_voice_broad=0;//是否正在广播。0：没有广播；1：正在广播；
 u16 send_frequency=FREQUENCY_MIN;//发射频点，只保存发射的频率 
@@ -100,19 +102,20 @@ int main(void)
 	RDA5820_Init(); 	
 	RDA5820_Band_Set(1);	//设置频段为0:87~108Mhz;1:76~91Mhz;
 	RDA5820_Space_Set(0);	//设置步进为100Khz
-	RDA5820_TxPGA_Set(1);	//信号增益设置为3
-	RDA5820_TxPAG_Set(8);	//发射功率为最大.	
+	RDA5820_TxPGA_Set(1);	//信号增益设置为3			
 	RDA5820_RX_Mode();		//接收模式
 	STMFLASH_Read(FLASH_SAVE_ADDR,(u16*)flash_temp,SIZE);
-	fre_tmp=flash_temp[0]*10+FREQUENCY_MIN;
-	
-	if(flash_temp[2]>63){
-		flash_temp[2]=8;//默认值这是为8，对应-13dbm
+		
+	if(flash_temp[2]>MAX_POWER){
+		flash_temp[2]=4;//默认值这是为4
 	}
+	RDA5820_TxPAG_Set(flash_temp[2]); //设置发射功率
 
+	fre_tmp=flash_temp[0]*10+FREQUENCY_MIN;
 	if((fre_tmp>FREQUENCY_MIN)&&(fre_tmp<FREQUENCY_MAX)){send_frequency=fre_tmp;}
 	else{send_frequency=FREQUENCY_MIN;}
 	RDA5820_Freq_Set(send_frequency);	//设置频率
+
  	while(1)
 	{
 //		if(USART2_RX_STA&0x8000)
@@ -209,8 +212,10 @@ int main(void)
 						}
 
 						
-						RDA5820_TX_Mode();			//发送模式
-						RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
+						if(flag_voice_broad==0){
+							RDA5820_TX_Mode();	//在没有广播的情况下，才设置发送模式
+							RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
+						}
 						TIM_Cmd(TIM5, DISABLE); //失能TIM5
 						timer_67_stop=0;//打开FSK震荡
 						TIM_Cmd(TIM6, ENABLE); //使能TIM6
@@ -261,7 +266,10 @@ int main(void)
 					}
 				}
 			}else{			
-			
+				if(flag_voice_broad==0){
+					RDA5820_TX_Mode();//发送模式
+					RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
+				}
 				fm_frame_index_bits=25;//FM比特流数组重置
 				for(t=0;t<fm_frame_index_byte;t++){
 					for (i=3;i>=0;i--)
@@ -270,8 +278,8 @@ int main(void)
 						fm_frame_index_bits++;
 					}
 				}
-				RDA5820_TX_Mode();//发送模式
-				RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
+				
+				
 				TIM_Cmd(TIM5, DISABLE); //失能TIM5，避免产生16ms的中断干扰无线发送
 				timer_67_stop=0;//打开FSK震荡
 				TIM_Cmd(TIM6, ENABLE); //使能TIMx
@@ -323,13 +331,13 @@ int main(void)
 						 index_frame_send++;
 						 frame_send_buf[index_frame_send]=USART_RX_BUF[5];
 						 index_frame_send++;
-						 STMFLASH_Read(FLASH_SAVE_ADDR,(u16*)flash_temp,SIZE);
+
+	//					 STMFLASH_Read(FLASH_SAVE_ADDR,(u16*)flash_temp,SIZE);//读取最新的值
 						 frame_send_buf[index_frame_send]=flash_temp[0];//相对频点
 						 index_frame_send++;
 
-						 if(flash_temp[2]>64)flash_temp[2]=8;//值超过范围，设置为默认值8，对应-13dbm
-						 RDA5820_TxPAG_Set(flash_temp[2]);
-
+	//					 if(flash_temp[2]>MAX_POWER)flash_temp[2]=4;//值超过范围，设置为默认值8，对应-13dbm
+	//					 RDA5820_TxPAG_Set(flash_temp[2]);	 //保险起见
 						 frame_send_buf[index_frame_send]=flash_temp[2];//发射功率
 						 index_frame_send++;
 						 frame_send_buf[index_frame_send]=XOR(frame_send_buf,index_frame_send);
@@ -347,6 +355,7 @@ int main(void)
 					}
  					/*******************************************频谱扫描帧*************************************************************/					
 					else if((USART_RX_BUF[1]=='f')&&(USART_RX_BUF[2]=='r')&&(USART_RX_BUF[3]=='e')&&(USART_RX_BUF[4]=='_')){//频谱扫描帧
+						RDA5820_WR_Reg(RDA5820_R05,0X884F);	//搜索强度8,LNAN,1.8mA,VOL最大	   ,默认0X884F
 						USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//频谱扫描帧发送过程中允许被中断，打开中断
 						usart1_works=3;//接收到频谱扫描帧
 						RDA5820_RX_Mode();			//接收模式
@@ -408,6 +417,7 @@ int main(void)
 						 delay_ms(20);					 
 						 USART_RX_STA=0;//处理完毕，允许接收下一帧
 						 usart1_works=0;//处理完，标志清零
+						 RDA5820_WR_Reg(RDA5820_R05,0X880F);	//搜索强度8,LNAN,1.8mA,VOL最大	   ,默认0X884F
 					}
  					/*******************************************控制帧*************************************************************/
 					else if((USART_RX_BUF[1]=='c')&&(USART_RX_BUF[2]=='o')&&(USART_RX_BUF[3]=='n')&&(USART_RX_BUF[4]=='_')){//控制帧
@@ -434,10 +444,14 @@ int main(void)
 						 	case 1:
 								break;
 							case 2:
-								send_frequency=USART_RX_BUF[7]*10+FREQUENCY_MIN;
-								TEXT_Buffer[0]=USART_RX_BUF[7];
-								STMFLASH_Write(FLASH_SAVE_ADDR,(u16*)TEXT_Buffer,SIZE);
-								RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
+								if(USART_RX_BUF[7]!=flash_temp[0]){//下传值与实际值不同时，才存储
+									send_frequency=USART_RX_BUF[7]*10+FREQUENCY_MIN;
+									TEXT_Buffer[0]=USART_RX_BUF[7];
+									flash_temp[0]=TEXT_Buffer[0];//flash_temp中值始终保持最新的
+									TEXT_Buffer[2]=flash_temp[2];
+									STMFLASH_Write(FLASH_SAVE_ADDR,(u16*)TEXT_Buffer,SIZE);
+									RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
+								}								
 								break;
 							case 3:
 								flag_voice_broad=1;//开始广播语音
@@ -453,14 +467,50 @@ int main(void)
 								break;
 							case 5://调整发射功率
 						//		RDA5820_TxPGA_Set(4);	//信号增益设置为3
-								TEXT_Buffer[2]=USART_RX_BUF[7]-13;
+								TEXT_Buffer[2]=USART_RX_BUF[7]-13;								
+								if((TEXT_Buffer[2]>MAX_POWER)){//防止过载
+									TEXT_Buffer[2]=4;//超出范围则置为默认值									
+								}
+								flash_temp[2]=TEXT_Buffer[2];
+								TEXT_Buffer[0]=flash_temp[0];
 								STMFLASH_Write(FLASH_SAVE_ADDR,(u16*)TEXT_Buffer,SIZE);
-								RDA5820_TxPAG_Set((USART_RX_BUF[7]-13));	//发射功率为最大.//将USART_RX_BUF[7]抬高到13以上，避免出现帧尾0x0d
+								RDA5820_TxPAG_Set(TEXT_Buffer[2]);	//发射功率为最大.//将USART_RX_BUF[7]抬高到13以上，避免出现帧尾0x0d
 								break;
 							default:
 							break;
 						 }
 						 usart1_works=6;//发送控制反馈帧
+						 for(t=0;t<index_frame_send;t++)
+						 {
+							USART_SendData(USART1, frame_send_buf[t]);//向串口发送数据
+							while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
+						 }
+						 //printf("\r\n控制帧\r\n");
+						 USART_RX_STA=0;//处理完毕，允许接收下一帧
+						 USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
+						 usart1_works=0;//处理完毕，标志清零
+					}
+					/*******************************************多链路接入，开始/结束广播申请帧*************************************************************/
+					else if((USART_RX_BUF[1]=='p')&&(USART_RX_BUF[2]=='p')&&(USART_RX_BUF[3]=='p')&&(USART_RX_BUF[4]=='_')){
+						usart1_works=10;//接收到多链路接入申请
+						frame_send_buf[index_frame_send]='$';
+						 index_frame_send++;
+						 frame_send_buf[index_frame_send]='p';
+						 index_frame_send++;
+						 frame_send_buf[index_frame_send]='p';
+						 index_frame_send++;
+						 frame_send_buf[index_frame_send]='p';
+						 index_frame_send++;
+						 frame_send_buf[index_frame_send]='_';
+						 index_frame_send++;
+						 frame_send_buf[index_frame_send]=USART_RX_BUF[5];
+						 index_frame_send++;
+						 frame_send_buf[index_frame_send]=USART_RX_BUF[6];
+						 index_frame_send++;
+						 frame_send_buf[index_frame_send]=USART_RX_BUF[7];
+						 index_frame_send++;
+
+						 usart1_works=11;//发送多链路申请应答帧
 						 for(t=0;t<index_frame_send;t++)
 						 {
 							USART_SendData(USART1, frame_send_buf[t]);//向串口发送数据
@@ -507,7 +557,7 @@ int main(void)
 							wakeup_times=(USART_RX_BUF[8]-0x30)*3;//每秒钟发送三次唤醒帧
 						}else if(fm_total_bytes==FRAME_CONTROL){
 							flag_is_wakeup_frame=2;//收到了控制帧
-							wakeup_times=(USART_RX_BUF[8]-0x30)*3;//每秒钟发送三次唤醒帧
+							wakeup_times=(USART_RX_BUF[8]-0x30)*6;//每秒钟发送三次唤醒帧
 						}
 						flag_byte_ready=1;//数据帧字节流保存到本地，成功
 				   /*******************数据帧处理，1字节转为4bits，结束*********************************/

@@ -88,8 +88,8 @@ extern u16 USART_RX_STA;       //串口1状态字
 extern u16 USART2_RX_STA;       //串口2状态字
 extern u16 fm_frame_index_byte;//FM广播01序列转为字节流的下标
 extern u8 flag_is_wakeup_frame;//当前帧是唤醒帧的标志位
-extern u8 wakeup_times;//唤醒帧发送的次数
-u8 wakeup_times_index=0;//唤醒帧发送次数的索引值
+extern u16 wakeup_times;//唤醒帧发送的次数
+u16 wakeup_times_index=0;//唤醒帧发送次数的索引值
 u16 delay_index=0;//帧间隔延迟的索引下标
 extern u8 flag_voice_broad;//是否正在广播。0：没有广播；1：正在广播；
 extern u16 send_frequency;//发射频点，只保存发射的频率

@@ -20,6 +20,7 @@
 u8 RDA5820_Init(void)
 {
 	u16 id;
+	u16 temp;
 	IIC_Init();						//初始化IIC口	
 	id=RDA5820_RD_Reg(RDA5820_R00);	//读取ID =0X5805
 	if(id==0X5805)					//读取ID正确
@@ -28,7 +29,7 @@ u8 RDA5820_Init(void)
 		delay_ms(50);
 	 	RDA5820_WR_Reg(RDA5820_R02,0xC001);	//立体声,上电
 		delay_ms(600);						//等待时钟稳定 
-	 	RDA5820_WR_Reg(RDA5820_R05,0X884F);	//搜索强度8,LNAN,1.8mA,VOL最大
+	 	RDA5820_WR_Reg(RDA5820_R05,0X880F);	//搜索强度8,LNAN,1.8mA,VOL最大	   ,默认0X884F
  	 	RDA5820_WR_Reg(0X07,0X7800);		// 
 	 	RDA5820_WR_Reg(0X13,0X0008);		// 
 	 	RDA5820_WR_Reg(0X15,0x1420);		//VCO设置  0x17A0/0x1420 
@@ -36,6 +37,14 @@ u8 RDA5820_Init(void)
 	 	RDA5820_WR_Reg(0X1C,0X3126);		// 
 	 	RDA5820_WR_Reg(0X22,0X9C24);		//fm_true 
 	 	RDA5820_WR_Reg(0X47,0XF660) ;		//tx rds 
+
+		temp=RDA5820_RD_Reg(RDA5820_R4D);
+		temp&=0xC000;
+		RDA5820_WR_Reg(RDA5820_R4D,temp);
+
+//		temp=RDA5820_RD_Reg(RDA5820_R4C);
+//		temp&=0x8000;
+//		RDA5820_WR_Reg(RDA5820_R4C,temp);
  	}else return 1;//初始化失败
 	return 0;
 }
