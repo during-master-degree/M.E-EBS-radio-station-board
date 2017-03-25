@@ -39,12 +39,11 @@ u16 temp_frame_byte_index=0;//测试数组
 u8 usart2_works=0;//串口2工作状态指示。0：空闲；1：发送连接帧；2：接收连接反馈帧；3：发送数据帧；4：接收数据帧；
 u8 usart1_works=0;//串口1工作状态指示。0：空闲；1：接收连接帧；2：发送连接反馈帧；3：接收频谱扫描帧；4：发送频谱扫描反馈帧；
 				  //5:接收控制帧;6:发送控制反馈帧;7:接收数据帧;8:发送数据反馈帧(包括重传帧);9：数据帧无线传输中；
-u8 flag_safe_soc=0;//安全芯片是否可用标志位。0：可用；1：不可用；
 u8 frame_safe[40]={0};//认证帧重组，发给安全芯片
 u8 index_frame_safe=0;//认证帧数组下表，发给安全芯片
 u8 index_safe_times=0;//认证帧发送次数计数器
 u8 flag_safe_frame=0;//本帧是认证帧
-u8 flag_safe_soc_ok=0;//安全芯片超时与应答。1：未应答；0：已应答；
+u8 flag_safe_soc_ok=0;//安全芯片超时与应答。1：未应答（不可用）；0：已应答（可用）；
 int main(void)
 {	 
 	u16 freqset=FREQUENCY_MIN;//接收、发射频点
@@ -70,11 +69,11 @@ int main(void)
 	delay_init();	    	 //延时函数初始化	  
 	NVIC_Configuration(); 	 //设置NVIC中断分组2:2位抢占优先级，2位响应优先级
 	uart_init(115200);	 	//串口1初始化为9600
-	uart2_init(4800);	 //串口2初始化为4800
+	uart2_init(9600);	 //串口2初始化为4800
 //	KEY_Init();
  	LED_Init();			     //LED端口初始化
-	TIM5_Int_Init(2999,7199);//安全芯片定期查询，1s中断一次，5秒查询一次
-//	TIM4_Int_Init(9999,7199);//安全芯片应答超时检测
+	TIM5_Int_Init(9999,7199);//安全芯片定期查询，1s中断一次，5秒查询一次
+	TIM4_Int_Init(2999,7199);//安全芯片应答超时检测
 	TIM3_Int_Init(9,7199);//1Khz的FSK方波
 	TIM7_Int_Init(4,1199);//6K周期方波
 	TIM6_Int_Init(4,719);//10k周期方波
@@ -117,16 +116,15 @@ int main(void)
 					safe_miwen_index=0;
  					/*******************************************安全芯片连接反馈帧**********************************************************************************/
 					if((USART2_RX_BUF[1]=='s')&&(USART2_RX_BUF[2]=='a')&&(USART2_RX_BUF[3]=='f')&&(USART2_RX_BUF[4]=='_')&&(USART2_RX_BUF[5]=='_')){//连接帧
-						flag_safe_soc=0;//标记安全芯片可用
-				//		printf("safe chip, timer checkd!\r\n");
-						USART2_RX_STA=0;//处理完毕，允许接收下一帧
+						flag_safe_soc_ok=0;//标记安全芯片可用
 						LED0=1;//关闭警示灯
+						USART2_RX_STA=0;//处理完毕，允许接收下一帧
 						USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//打开中断
 					}
  					/*******************************************安全芯片认证数据回传帧**********************************************************************************/
 				 	else if((flag_safe_soc_ok==0)&&(USART2_RX_BUF[1]=='e')&&(USART2_RX_BUF[2]=='c')&&(USART2_RX_BUF[3]=='c')&&(USART2_RX_BUF[4]=='_')&&(USART2_RX_BUF[5]=='_')){//连接帧
-						flag_safe_soc=0;//标记安全芯片可用					
-
+						flag_safe_soc_ok=0;//标记安全芯片可用					
+						LED0=1;//关闭警示灯
 						safe_total_bytes=USART2_RX_BUF[7]*256+USART2_RX_BUF[8];//得到密文总的长度
 						for(t=0;t<safe_total_bytes;t++){//把密文拆成比特流
 							for (i=3;i>=0;i--)
@@ -192,8 +190,10 @@ int main(void)
 			usart1_works=9;//数据无线传输中
 			if(flag_safe_frame==1){//认证帧
 				safe_soc();//把明文发送给安全芯片
-				flag_safe_soc_ok=1;
-				TIM5->ARR=2999;//重新状态定时器的值
+				flag_safe_soc_ok=1;//标记为安全芯片未应答
+				LED0=0;//打开警示灯	
+				TIM4->ARR=2999;//重新状态定时器的值
+				TIM_Cmd(TIM4,ENABLE);//打开超时判断定时器
 				usart2_works=3;//标记串口2刚发送完明文
 				safe_mingwen_index=0;//将明文拆为比特流
 				for(t=0;t<21;t++){
