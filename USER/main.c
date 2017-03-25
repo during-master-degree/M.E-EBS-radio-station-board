@@ -89,8 +89,8 @@ int main(void)
 	TIM5_Int_Init(9999,7199);//安全芯片定期查询，1s中断一次，5秒查询一次
 	TIM4_Int_Init(2999,7199);//安全芯片应答超时检测
 	TIM3_Int_Init(9,7199);//1Khz的FSK方波
-	TIM6_Int_Init(4,1199);//6K周期方波
-	TIM7_Int_Init(4,719);//10k周期方波
+	TIM7_Int_Init(4,1199);//6K周期方波
+	TIM6_Int_Init(4,719);//10k周期方波
 	 
 //	LCD_Init();			 	
 // 	usmart_dev.init(72);	//初始化USMART	
