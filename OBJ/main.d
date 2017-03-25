@@ -22,5 +22,4 @@
 ..\OBJ\main.o: ..\HARDWARE\AUDIOSEL\audiosel.h
 ..\OBJ\main.o: ..\HARDWARE\RDA5820\rda5820.h
 ..\OBJ\main.o: ..\HARDWARE\IIC\myiic.h
-..\OBJ\main.o: ..\USMART\usmart.h
-..\OBJ\main.o: ..\USMART\usmart_str.h
+..\OBJ\main.o: ..\HARDWARE\TIMER\timer.h

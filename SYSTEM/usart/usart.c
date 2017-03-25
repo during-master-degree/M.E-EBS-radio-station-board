@@ -126,16 +126,16 @@ void uart_init(u32 bound){
 
     USART_Init(USART1, &USART_InitStructure); //初始化串口
     USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//开启中断
-    USART_Cmd(USART1, ENABLE);                    //使能串口 
+    USART_Cmd(USART1, ENABLE);//使能串口 
 
 }
 
 void USART1_IRQHandler(void)                	//串口1中断服务程序
 	{
 	u8 Res;
-#ifdef OS_TICKS_PER_SEC	 	//如果时钟节拍数定义了,说明要使用ucosII了.
-	OSIntEnter();    
-#endif
+//#ifdef OS_TICKS_PER_SEC	 	//如果时钟节拍数定义了,说明要使用ucosII了.
+//	OSIntEnter();    
+//#endif
 	if(USART_GetITStatus(USART1, USART_IT_RXNE) != RESET)  //接收中断(接收到的数据必须是0x0d 0x0a结尾)
 		{
 		Res =USART_ReceiveData(USART1);//(USART1->DR);	//读取接收到的数据
@@ -145,7 +145,10 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 			if(USART_RX_STA&0x4000)//接收到了0x0d
 				{
 				if(Res!=0x0a)USART_RX_STA=0;//接收错误,重新开始
-				else USART_RX_STA|=0x8000;	//接收完成了 
+				else {
+					USART_RX_STA|=0x8000;	//接收完成了
+					USART_ITConfig(USART1, USART_IT_RXNE, DISABLE);//关闭中断
+					} 
 				}
 			else //还没收到0X0D
 				{	
@@ -159,9 +162,9 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 				}
 			}   		 
      } 
-#ifdef OS_TICKS_PER_SEC	 	//如果时钟节拍数定义了,说明要使用ucosII了.
-	OSIntExit();  											 
-#endif
+//#ifdef OS_TICKS_PER_SEC	 	//如果时钟节拍数定义了,说明要使用ucosII了.
+//	OSIntExit();  											 
+//#endif
 } 
 #endif	
 

@@ -10,6 +10,7 @@
 ### List of Objects: adding '"..\obj\myiic.o"'
 ### List of Objects: adding '"..\obj\audiosel.o"'
 ### List of Objects: adding '"..\obj\rda5820.o"'
+### List of Objects: adding '"..\obj\timer.o"'
 ### List of Objects: adding '"..\obj\delay.o"'
 ### List of Objects: adding '"..\obj\sys.o"'
 ### List of Objects: adding '"..\obj\usart.o"'
@@ -25,14 +26,14 @@
 ### List of Objects: adding '"..\obj\usmart_config.o"'
 ### List of Objects: adding '"..\obj\usmart_str.o"'
 ### ADS-LD Command completed:
---device DARMSTM "..\obj\main.o" "..\obj\stm32f10x_it.o" "..\obj\system_stm32f10x.o" "..\obj\led.o" "..\obj\key.o" "..\obj\lcd.o" "..\obj\myiic.o" "..\obj\audiosel.o" "..\obj\rda5820.o" "..\obj\delay.o" "..\obj\sys.o" "..\obj\usart.o" "..\obj\core_cm3.o" "..\obj\startup_stm32f10x_hd.o" "..\obj\misc.o" "..\obj\stm32f10x_fsmc.o" "..\obj\stm32f10x_gpio.o" "..\obj\stm32f10x_rcc.o" "..\obj\stm32f10x_usart.o" "..\obj\stm32f10x_tim.o" "..\obj\usmart.o" "..\obj\usmart_config.o" "..\obj\usmart_str.o" --strict --scatter "..\OBJ\FM.sct" 
+--device DARMSTM "..\obj\main.o" "..\obj\stm32f10x_it.o" "..\obj\system_stm32f10x.o" "..\obj\led.o" "..\obj\key.o" "..\obj\lcd.o" "..\obj\myiic.o" "..\obj\audiosel.o" "..\obj\rda5820.o" "..\obj\timer.o" "..\obj\delay.o" "..\obj\sys.o" "..\obj\usart.o" "..\obj\core_cm3.o" "..\obj\startup_stm32f10x_hd.o" "..\obj\misc.o" "..\obj\stm32f10x_fsmc.o" "..\obj\stm32f10x_gpio.o" "..\obj\stm32f10x_rcc.o" "..\obj\stm32f10x_usart.o" "..\obj\stm32f10x_tim.o" "..\obj\usmart.o" "..\obj\usmart_config.o" "..\obj\usmart_str.o" --strict --scatter "..\OBJ\FM.sct" 
 --autoat --summary_stderr --info summarysizes --map --xref --callgraph --symbols 
 --info sizes --info totals --info unused --info veneers 
  --list ".\FM.map" -o "..\OBJ\FM.axf"### Preparing Environment (PrepEnvAds)
 ### ADS-LD Output File: '..\OBJ\FM.axf'
 ### ADS-LD Command File: '..\OBJ\FM.lnp'
 ### Checking for dirty Components...
-### Creating CmdFile '..\OBJ\FM.lnp', Handle=0x000003C0
+### Creating CmdFile '..\OBJ\FM.lnp', Handle=0x00000380
 ### Writing '.lnp' file
 ### ADS-LD Command file '..\OBJ\FM.lnp' is ready.
 ### ADS-LD: About to start ADS-LD Thread.

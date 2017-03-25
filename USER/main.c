@@ -6,139 +6,94 @@
 #include "usart.h"	 	 
 #include "audiosel.h"
 #include "rda5820.h"
-#include "usmart.h"
-#define FREQUENCY_POINT 10
+#include "timer.h"
+//#include "usmart.h"
 
-void RDA5820_Show_Msg(void)
-{
-	u8 rssi;
-	u16 freq;
-	freq=RDA5820_Freq_Get();				//读取设置到的频率值
-	LCD_ShowNum(100,210,freq/100,3,16);		//显示频率整数部分
-	LCD_ShowNum(132,210,(freq%100)/10,1,16);//显示频率小数部分
-	rssi=RDA5820_Rssi_Get();				//得到信号强度
-	LCD_ShowNum(100,230,rssi,2,16);			//显示信号强度
-}
+#define FREQUENCY_MIN 7600
+#define FREQUENCY_MAX 8800
+#define FREQUENCY_POINT (FREQUENCY_MAX-FREQUENCY_MIN)/10+1
+#define FRAME_WAKEUP_BROADCAST 120*2/4
+#define FRAME_WAKEUP_UNICAST 144*2/4
+#define FRAME_WAKEUP_MULTICAST 168*2/4
+#define FRAME_CONTROL 84*2/4
+#define FRAME_SECURTY 470*2/4
+
+//void RDA5820_Show_Msg(void)
+//{
+//	u8 rssi;
+//	u16 freq;
+//	freq=RDA5820_Freq_Get();				//读取设置到的频率值
+//	LCD_ShowNum(100,210,freq/100,3,16);		//显示频率整数部分
+//	LCD_ShowNum(132,210,(freq%100)/10,1,16);//显示频率小数部分
+//	rssi=RDA5820_Rssi_Get();				//得到信号强度
+//	LCD_ShowNum(100,230,rssi,2,16);			//显示信号强度
+//}
 
 u8 flag_frame_processing=0;//收到的数据帧正在处理标志位。1:处理中;0:空闲;
-u8 index_frame_send=0;//回复信息帧下标
-u8 frame_send_buf[100]={0};//发送缓冲区
-unsigned char XOR(unsigned char *BUFF, int len);
+u8 index_frame_send=0;//串口回复信息帧下标
+u8 frame_send_buf[100]={0};//串口回传缓冲区
+
+u16 fm_frame_index_bits=0;//FM广播01序列比特流下标
+u8 fm_frame_bits[1100]={1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,0,0,1,0,0,1,0};//FM广播帧序列比特流缓冲区
+u16 fm_frame_index_byte=0;//FM广播01序列字节流下标
+u8 fm_frame_byte[1100/2]={0};//FM广播帧序列字节流缓冲区
+unsigned char XOR(unsigned char *BUFF, u16 len);
 
 
 
 int main(void)
 {	 
-	u8 key,rssi;
-	u16 freqset=8700;//默认为87Mhz  
-	u8 i=0;
-	u8 mode=0;	//接收模式
-
+	u16 freqset=FREQUENCY_MIN;//接收、发射频点
+	u16 send_frequency=FREQUENCY_MIN;//发射频点，只保存发射的频率  
 	u16 t=0,j=0;
-	u8 len;	
+	signed char i=0;//字节转比特流
+	u16 len;
+	u16 fm_total_bytes=0;//数据帧总有效字节数量
+	u8 flag_byte_ready=0;//字节流已经全部保存到本地buffer标志位
+//	u8 bit_sync[14]={1,0,1,0,1,0,1,0,1,0,1,0,1,0};//位同步头
+//	u8 frame_sync[11]={1,1,1,0,0,0,1,0,0,1,0};//帧同步头	
 
 	delay_init();	    	 //延时函数初始化	  
 	NVIC_Configuration(); 	 //设置NVIC中断分组2:2位抢占优先级，2位响应优先级
 	uart_init(115200);	 	//串口初始化为9600
-	KEY_Init();
+//	KEY_Init();
  	LED_Init();			     //LED端口初始化
-	LCD_Init();			 	
-   	usmart_dev.init(72);	//初始化USMART	
- 	Audiosel_Init();
-	Audiosel_Set(AUDIO_RADIO);
+	TIM3_Int_Init(4999,7199);//10Khz的计数频率，计数到5000为500ms
+//	LCD_Init();			 	
+// 	usmart_dev.init(72);	//初始化USMART	
+// 	Audiosel_Init();
+//	Audiosel_Set(AUDIO_RADIO);
 
-	RDA5820_Init();	  
-
- 	POINT_COLOR=RED;//设置字体为红色 
-	LCD_ShowString(60,50,200,16,16,"WarShip STM32");	
-	LCD_ShowString(60,70,200,16,16,"RDA5820 TEST");	
-	LCD_ShowString(60,90,200,16,16,"ATOM@ALIENTEK");
-	LCD_ShowString(60,110,200,16,16,"2012/9/14");  
-	LCD_ShowString(60,130,200,16,16,"KEY0:Freq+ KEY2:Freq-");
-	LCD_ShowString(60,150,200,16,16,"KEY1:Auto Search(RX)");
-	LCD_ShowString(60,170,200,16,16,"KEY_UP:Mode Set");
-	POINT_COLOR=BLUE;
-	//显示提示信息
-	POINT_COLOR=BLUE;//设置字体为蓝色	  
-	LCD_ShowString(60,190,200,16,16,"Mode:FM RX");	 				    
-	LCD_ShowString(60,210,200,16,16,"Freq: 93.6Mhz");	 				    
-	LCD_ShowString(60,230,200,16,16,"Rssi:");	 				    
- 	
-	RDA5820_Band_Set(0);	//设置频段为87~108Mhz
+	RDA5820_Init(); 	
+	RDA5820_Band_Set(1);	//设置频段为0:87~108Mhz;1:76~91Mhz;
 	RDA5820_Space_Set(0);	//设置步进为100Khz
 	RDA5820_TxPGA_Set(3);	//信号增益设置为3
-	RDA5820_TxPAG_Set(63);	//发射功率为最大.
-	RDA5820_RX_Mode();		//设置为接收模式  
-	
-	freqset=9360;				//默认为93.6Mhz
-	RDA5820_Freq_Set(freqset);	//设置频率
+	RDA5820_TxPAG_Set(63);	//发射功率为最大.	
+	RDA5820_TX_Mode();			//发送模式
+	RDA5820_Freq_Set(send_frequency);	//设置频率
  	while(1)
-	{	
-//		key=KEY_Scan(0);//不支持连按
-//		switch(key)
-//		{
-//			case 0://无任何按键按下
-//				break;
-//			case KEY_UP://切换模式
-//				mode=!mode;
-//				if(mode)
-//				{
-//					Audiosel_Set(AUDIO_PWM);	//设置到PWM 音频通道
-//					RDA5820_TX_Mode();			//发送模式
-//					RDA5820_Freq_Set(freqset);	//设置频率
-//					LCD_ShowString(100,190,200,16,16,"FM TX");	 				    
-//				}else 
-//				{
-//						Audiosel_Set(AUDIO_RADIO);	//设置到收音机声道
-//						RDA5820_RX_Mode();			//接收模式
-//					RDA5820_Freq_Set(freqset);	//设置频率
-//					LCD_ShowString(100,190,200,16,16,"FM RX");	 				    
-//				}
-//				break;
-//			case KEY_DOWN://自动搜索下一个电台.
-//				if(mode==0)//仅在接收模式有效
-//				{
-//  					while(1)
-//					{
-//						if(freqset<10800)freqset+=10;   //频率增加100Khz
-//					 	else freqset=8700;				//回到起点
-//						RDA5820_Freq_Set(freqset);		//设置频率
-//						delay_ms(10);					//等待调频信号稳定
-//						if(RDA5820_RD_Reg(0X0B)&(1<<8))//是一个有效电台. 
-//						{
-//  							RDA5820_Show_Msg();			//显示信息
-//							break;		 
-//						}		    		
-// 						RDA5820_Show_Msg();			//显示信息
-//						//在搜台期间有按键按下,则跳出搜台.
-//						key=KEY_Scan(0);//不支持连按
-//						if(key)break;
-//					}
-//				}
-//				break;
-//			case KEY_LEFT://频率减
-//				if(freqset>8700)freqset-=10;   //频率减少100Khz
-//				else freqset=10800;			//越界处理 
-//				RDA5820_Freq_Set(freqset);	//设置频率
-//				RDA5820_Show_Msg();//显示信息
-//				break;
-//			case KEY_RIGHT://频率增
-//				if(freqset<10800)freqset+=10;  //频率增加100Khz
-//				else freqset=8700;		 	//越界处理 
-//				RDA5820_Freq_Set(freqset);	//设置频率
-//				RDA5820_Show_Msg();//显示信息
-//				break;
-//		}	 
-//		i++;
-//		delay_ms(10);	  
-//		if(i==200)//每两秒左右检测一次信号强度等信息.
-//		{
-//			i=0;
-//			rssi=RDA5820_Rssi_Get();				//得到信号强度
-//			LCD_ShowNum(100,230,rssi,2,16);			//显示信号强度
-//		}
+	{
+		if(flag_byte_ready==1){//数据保存本地成功
+			fm_frame_index_bits=25;//FM比特流数组清空
+			for(t=0;t<fm_frame_index_byte;t++){
+				for (i=3;i>=0;i--)
+				{
+					fm_frame_bits[fm_frame_index_bits]=(fm_frame_byte[t]&(0x01<<i))?1:0; 
+					fm_frame_index_bits++;
+				}
+			}
+			for(t=0;t<fm_frame_index_bits;t++)
+				{
+	//				PBout(6)=fm_frame_bits[t];//还需要加位同步，帧同步头
+					USART_SendData(USART1, fm_frame_bits[t]);//向串口发送数据
+					while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
+				}
+			flag_byte_ready=0;//处理完毕，清零
+			fm_frame_index_byte=0;//字节流数组清空
+			USART_RX_STA=0;//处理完毕，允许接收下一帧
+			USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//开启中断
+		}	
 
-//	   printf("%d ,",USART_RX_STA);
 	   if(USART_RX_STA&0x8000)
 		{					   
 			len=USART_RX_STA&0x3ff;//得到此次接收到的数据长度
@@ -170,43 +125,56 @@ int main(void)
 							while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
 						 }
 						 //printf("\r\n子板连接帧\r\n");
-	
+						 USART_RX_STA=0;//处理完毕，允许接收下一帧
+						 USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//开启中断
 					}
  /*******************************************频谱扫描帧**********************************************************************************/					
 					else if((USART_RX_BUF[1]=='f')&&(USART_RX_BUF[2]=='r')&&(USART_RX_BUF[3]=='e')&&(USART_RX_BUF[4]=='_')){//频谱扫描帧
+						RDA5820_RX_Mode();			//接收模式
+						freqset=FREQUENCY_MIN;
+						RDA5820_Freq_Set(freqset);	//设置频率为最小值					
+
 						frame_send_buf[index_frame_send]='$';
-						 index_frame_send++;
-						 frame_send_buf[index_frame_send]='f';
-						 index_frame_send++;
-						 frame_send_buf[index_frame_send]='r';
-						 index_frame_send++;
-						 frame_send_buf[index_frame_send]='e';
-						 index_frame_send++;
-						 frame_send_buf[index_frame_send]='_';
-						 index_frame_send++;
-						 frame_send_buf[index_frame_send]='_';
-						 index_frame_send++;
-						 frame_send_buf[index_frame_send]=USART_RX_BUF[5];
-						 index_frame_send++;
-						 frame_send_buf[index_frame_send]=0;
-						 index_frame_send++;
-						 frame_send_buf[index_frame_send]=0;
-						 index_frame_send++;
-						 frame_send_buf[index_frame_send]=23;
-						 index_frame_send++;
-						 frame_send_buf[index_frame_send]=XOR(frame_send_buf,index_frame_send);
-						 index_frame_send++;
-						 for(j=0;j<FREQUENCY_POINT;j++){
-							 for(t=0;t<index_frame_send;t++)
-							 {
+						index_frame_send++;
+						frame_send_buf[index_frame_send]='f';
+						index_frame_send++;
+						frame_send_buf[index_frame_send]='r';
+						index_frame_send++;
+						frame_send_buf[index_frame_send]='e';
+						index_frame_send++;
+						frame_send_buf[index_frame_send]='_';
+						index_frame_send++;
+						frame_send_buf[index_frame_send]='_';
+						index_frame_send++;
+						frame_send_buf[index_frame_send]=USART_RX_BUF[5];
+						index_frame_send++;
+						frame_send_buf[index_frame_send]=0;
+						index_frame_send+=3;
+
+						for(j=0;j<FREQUENCY_POINT;j++){
+							
+							RDA5820_Freq_Set(freqset);//设置频率
+							delay_ms(90);//等待10ms调频信号稳定
+							frame_send_buf[8]=RDA5820_Rssi_Get();//得到信号强度
+							frame_send_buf[9]=XOR(frame_send_buf,index_frame_send-1);
+							for(t=0;t<index_frame_send;t++)
+							{
 								USART_SendData(USART1, frame_send_buf[t]);//向串口发送数据
 								while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
-							 }
-							 delay_ms(50);
-					//		 frame_send_buf[7]++;
-					//		 frame_send_buf[8]++;
+							}
+							delay_ms(10);
+							frame_send_buf[7]++;
+
+							if(freqset<FREQUENCY_MAX)freqset+=10;  //频率增加100Khz
+							else freqset=FREQUENCY_MIN;		 	//越界处理 
 						 }
+
+						 RDA5820_TX_Mode();			//频谱扫描之后切换回发送模式
+						 RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
+						 delay_ms(20);
 						 //printf("\r\n频谱扫描帧\r\n");
+						 USART_RX_STA=0;//处理完毕，允许接收下一帧
+						 USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//开启中断
 					}
  /*******************************************控制帧**********************************************************************************/
 					else if((USART_RX_BUF[1]=='c')&&(USART_RX_BUF[2]=='o')&&(USART_RX_BUF[3]=='n')&&(USART_RX_BUF[4]=='_')){//控制帧
@@ -230,6 +198,8 @@ int main(void)
 						 	case 1:
 							break;
 							case 2:
+								send_frequency=USART_RX_BUF[7]*10;
+								RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
 							break;
 							default:
 							break;
@@ -240,34 +210,63 @@ int main(void)
 							while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
 						 }
 						 //printf("\r\n控制帧\r\n");
+						 USART_RX_STA=0;//处理完毕，允许接收下一帧
+						 USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//开启中断
 					}
  /*******************************************数据帧**********************************************************************************/					
 					else if((USART_RX_BUF[1]=='d')&&(USART_RX_BUF[2]=='a')&&(USART_RX_BUF[3]=='t')&&(USART_RX_BUF[4]=='_')){//数据帧
-					
-					//printf("\r\n数据帧\r\n");
-					}else{printf("帧异常！");}
-				}else{printf("校验位错误！");}
-		    }
-//			for(t=0;t<len;t++)
-//			{
-//				USART_SendData(USART1, USART_RX_BUF[t]);//向串口1发送数据
-//				while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
-//			}
-
-			USART_RX_STA=0;
-		}
-	
-	}
+						frame_send_buf[index_frame_send]='$';
+						index_frame_send++;
+						frame_send_buf[index_frame_send]='d';
+						index_frame_send++;
+						frame_send_buf[index_frame_send]='a';
+						index_frame_send++;
+						frame_send_buf[index_frame_send]='t';
+						index_frame_send++;
+						frame_send_buf[index_frame_send]='_';
+						index_frame_send++;
+						frame_send_buf[index_frame_send]='_';
+						index_frame_send++;
+						frame_send_buf[index_frame_send]=USART_RX_BUF[5];
+						index_frame_send++;
+						frame_send_buf[index_frame_send]=XOR(frame_send_buf,index_frame_send);
+						index_frame_send++;
+				   /*******************数据帧处理，1字节转为4bits，开始*********************************/
+				   		fm_total_bytes=USART_RX_BUF[6]*256+USART_RX_BUF[7];
+					if((fm_total_bytes==FRAME_WAKEUP_BROADCAST )||(fm_total_bytes==FRAME_WAKEUP_UNICAST  )||(fm_total_bytes==FRAME_WAKEUP_MULTICAST  )||(fm_total_bytes==FRAME_CONTROL  )||(fm_total_bytes==FRAME_SECURTY  )){
+						for(t=0;t<fm_total_bytes;t++){
+							fm_frame_byte[fm_frame_index_byte]=USART_RX_BUF[t+8]-0x30;
+							fm_frame_index_byte++;
+						}
+						flag_byte_ready=1;//数据帧字节流保存到本地，成功
+				   /*******************数据帧处理，1字节转为4bits，结束*********************************/		
+						for(t=0;t<index_frame_send;t++)
+						{
+//							USART_SendData(USART1, frame_send_buf[t]);//向串口发送数据
+//							while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
+						}
+					}else{
+						flag_byte_ready=0;//数据帧字节流保存到本地，未成功
+						fm_frame_index_byte=0;//字节流数组清空
+//						printf("\r\nData frame error.\r\n");
+						}
+					}//else{printf("Frame anomalous!");}
+				}//else{printf("Verify bits wrong!");}
+		    }//if(USART_RX_BUF[0]=='$')
+						
+		}//if(USART_RX_STA&0x8000)
+			
+	}//while(1)
 }
 
 
 
 
 
-unsigned char XOR(unsigned char *BUFF, int len)
+unsigned char XOR(unsigned char *BUFF, u16 len)
 {
 	unsigned char result=0;
-	int i;
+	u16 i;
 	for(result=BUFF[0],i=1;i<len;i++)
 	{
 		result ^= BUFF[i];
