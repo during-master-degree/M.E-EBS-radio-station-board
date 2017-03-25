@@ -188,6 +188,7 @@ void TIM5_IRQHandler(void)   //TIM5中断
 			flag_safe_soc_ok=1;//查询前先标记不可用，串口2收到应答后再标记为可用
 			LED0=0;//标记不可用
 			usart2_works=1;//发送连接帧
+			index_frame_send_chip=0;
 			frame_send_buf_chip[index_frame_send_chip]='$';
 			index_frame_send_chip++;
 			frame_send_buf_chip[index_frame_send_chip]='s';
@@ -216,7 +217,7 @@ void TIM5_IRQHandler(void)   //TIM5中断
 
 			secury_chip_ckeck=0;		
 		}else{
-  			if(secury_chip_ckeck>200)secury_chip_ckeck=1;
+  			if(secury_chip_ckeck>50)secury_chip_ckeck=1;
 			else  secury_chip_ckeck++;
 			
 		}

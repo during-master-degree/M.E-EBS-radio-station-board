@@ -107,7 +107,7 @@ int main(void)
 		{			   
 			len1=USART2_RX_STA&0x3fff;//得到此次接收到的数据长度
 
-			if(USART2_RX_BUF[0]=='$'){
+			if((USART2_RX_BUF[0]=='$')&&(len1>0)){
 				if(USART2_RX_BUF[len1-1]==XOR(USART2_RX_BUF,len1-1)){
  					/*******************************************安全芯片连接反馈帧**********************************************************************************/
 					if((USART2_RX_BUF[1]=='s')&&(USART2_RX_BUF[2]=='a')&&(USART2_RX_BUF[3]=='f')&&(USART2_RX_BUF[4]=='_')&&(USART2_RX_BUF[5]=='_')){//连接帧
@@ -161,10 +161,10 @@ int main(void)
 							}							
 						}
 
-						TIM_Cmd(TIM5, DISABLE); //失能TIMx
-						TIM_Cmd(TIM3, ENABLE); //使能TIMx
-						TIM_Cmd(TIM6, ENABLE); //使能TIMx
-						TIM_Cmd(TIM7, ENABLE); //使能TIMx					
+						TIM_Cmd(TIM5, DISABLE); //失能TIM5
+						TIM_Cmd(TIM3, ENABLE); //使能TIM3
+						TIM_Cmd(TIM6, ENABLE); //使能TIM6
+						TIM_Cmd(TIM7, ENABLE); //使能TIM7					
 
 						USART2_RX_STA=0;//处理完毕，允许接收下一帧。防止循环进入
 					}
