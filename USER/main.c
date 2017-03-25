@@ -7,11 +7,7 @@
 #include "audiosel.h"
 #include "rda5820.h"
 #include "usmart.h"
-//ALIENTEK战舰STM32开发板实验35
-//FM收发 实验  
-//技术支持：www.openedv.com
-//广州市星翼电子科技有限公司 
-//显示频率、信号强度等信息
+
 void RDA5820_Show_Msg(void)
 {
 	u8 rssi;
@@ -23,19 +19,26 @@ void RDA5820_Show_Msg(void)
 	LCD_ShowNum(100,230,rssi,2,16);			//显示信号强度
 }
 
- int main(void)
- {	 
+u8 flag_frame_processing=0;//收到的数据帧正在处理标志位。1:处理中;0:空闲;
+u8 index_frame_send=0;//回复信息帧下标
+u8 frame_send_buf[100]={0};//发送缓冲区
+unsigned char XOR(unsigned char *BUFF, int len);
+
+
+
+int main(void)
+{	 
 	u8 key,rssi;
 	u16 freqset=8700;//默认为87Mhz  
 	u8 i=0;
 	u8 mode=0;	//接收模式
 
-	u8 t;
+	u16 t;
 	u8 len;	
 
 	delay_init();	    	 //延时函数初始化	  
 	NVIC_Configuration(); 	 //设置NVIC中断分组2:2位抢占优先级，2位响应优先级
-	uart_init(9600);	 	//串口初始化为9600
+	uart_init(115200);	 	//串口初始化为9600
 	KEY_Init();
  	LED_Init();			     //LED端口初始化
 	LCD_Init();			 	
@@ -133,20 +136,83 @@ void RDA5820_Show_Msg(void)
 //			rssi=RDA5820_Rssi_Get();				//得到信号强度
 //			LCD_ShowNum(100,230,rssi,2,16);			//显示信号强度
 //		}
-//		if((i%20)==0)LED0=!LED0;//DS0闪烁，提示程序运行
 
+//	   printf("%d ,",USART_RX_STA);
 	   if(USART_RX_STA&0x8000)
 		{					   
-			len=USART_RX_STA&0x3f;//得到此次接收到的数据长度
-			printf("\r\n您发送的消息为:\r\n\r\n");
-			for(t=0;t<len;t++)
-			{
-				USART_SendData(USART1, USART_RX_BUF[t]);//向串口1发送数据
-				while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
-			}
-			printf("\r\n\r\n");//插入换行
+			len=USART_RX_STA&0x3ff;//得到此次接收到的数据长度
+			for(t=0;t<index_frame_send;t++)
+						 {
+							USART_SendData(USART1, frame_send_buf[t]);//向串口发送数据
+							while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
+						 }
+
+			if(USART_RX_BUF[0]=='$'){
+				if(USART_RX_BUF[len-1]==XOR(USART_RX_BUF,len)){
+					index_frame_send=0;
+					if((USART_RX_BUF[1]=='r')&&(USART_RX_BUF[2]=='d')&&(USART_RX_BUF[3]=='y')&&(USART_RX_BUF[4]=='_')){//连接帧
+						 frame_send_buf[index_frame_send]='$';
+						 index_frame_send++;
+						 frame_send_buf[index_frame_send]='r';
+						 index_frame_send++;
+						 frame_send_buf[index_frame_send]='d';
+						 index_frame_send++;
+						 frame_send_buf[index_frame_send]='y';
+						 index_frame_send++;
+						 frame_send_buf[index_frame_send]='_';
+						 index_frame_send++;
+						 frame_send_buf[index_frame_send]='_';
+						 index_frame_send++;
+						 frame_send_buf[index_frame_send]=USART_RX_BUF[5];
+						 index_frame_send++;
+						 frame_send_buf[index_frame_send]=XOR(frame_send_buf,index_frame_send);
+						 index_frame_send++;
+						 for(t=0;t<index_frame_send;t++)
+						 {
+							USART_SendData(USART1, frame_send_buf[t]);//向串口发送数据
+							while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
+						 }
+						 printf("ok！");
+	
+					}else if((USART_RX_BUF[1]=='f')&&(USART_RX_BUF[2]=='r')&&(USART_RX_BUF[3]=='e')&&(USART_RX_BUF[4]=='_')){//频谱扫描帧
+					
+					}else if((USART_RX_BUF[1]=='c')&&(USART_RX_BUF[2]=='o')&&(USART_RX_BUF[3]=='n')&&(USART_RX_BUF[4]=='_')){//控制帧
+					
+					}else if((USART_RX_BUF[1]=='d')&&(USART_RX_BUF[2]=='a')&&(USART_RX_BUF[3]=='t')&&(USART_RX_BUF[4]=='_')){//数据帧
+					
+					}else{printf("帧异常！");}
+				}else{printf("校验位错误！");}
+		    }
+//			for(t=0;t<len;t++)
+//			{
+//				USART_SendData(USART1, USART_RX_BUF[t]);//向串口1发送数据
+//				while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
+//			}
+
 			USART_RX_STA=0;
 		}
 	
 	}
 }
+
+
+
+
+
+unsigned char XOR(unsigned char *BUFF, int len)
+{
+	unsigned char result=0;
+	int i;
+	for(result=BUFF[0],i=1;i<len;i++)
+	{
+		result ^= BUFF[i];
+	}
+	return result;
+}
+
+
+
+
+
+
+
