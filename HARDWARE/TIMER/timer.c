@@ -89,7 +89,10 @@ u8 frame_control[]={1,0,1,0,1,0,1,0,1,0,1,0,1,0,
 u16 t=0;//发送数组下标计数器
 extern u16 fm_frame_index_bits;//FM广播01序列比特流下标
 extern u8 fm_frame_bits[1100];//FM广播帧序列比特流缓冲区
-extern u8 flag_frame_processing;//收到的数据帧正在处理标志位。1:处理中;0:空闲;
+//extern u8 flag_frame_processing;//收到的数据帧正在处理标志位。1:处理中;0:空闲;
+extern u8 usart2_works;//串口2工作状态指示。0：空闲；1：发送连接帧；2：接收连接反馈帧；3：发送数据帧；4：接收数据帧(包括重传帧)；
+extern u8 usart1_works;//串口1工作状态指示。0：空闲；1：接收连接帧；2：发送连接反馈帧；3：接收频谱扫描帧；4：发送频谱扫描反馈帧；
+				  //5:接收控制帧;6:发送控制反馈帧;7:接收数据帧;8:发送数据反馈帧(包括重传帧);9：数据帧无线传输中；
 //定时器3中断服务程序
 void TIM3_IRQHandler(void)   //TIM3中断
 {
@@ -110,7 +113,9 @@ void TIM3_IRQHandler(void)   //TIM3中断
 			TIM_Cmd(TIM3,DISABLE);
 			TIM_Cmd(TIM6,DISABLE);
 			TIM_Cmd(TIM7,DISABLE);
-			flag_frame_processing=0;
+//			flag_frame_processing=0;
+			usart1_works=0;//处理完毕，标志串口1允许使用
+			USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
 		}//数据帧循环发送
 		
 
@@ -164,7 +169,8 @@ unsigned char XOR(unsigned char *BUFF, u16 len)
 u8 secury_chip_ckeck=0;//安全芯片查询位，计数到5即5秒，查询一次
 u8 frame_send_buf_chip[100]={0};//串口回传缓冲区
 u8 index_chipcheck_times=0;//芯片查询次数
-extern u8 main_busy;//主循环中正在执行
+extern u8 flag_safe_soc;//安全芯片是否可用标志位。0：可用；1：不可用；
+
 void TIM5_IRQHandler(void)   //TIM5中断
 {
 	u16 t=0;
@@ -172,9 +178,11 @@ void TIM5_IRQHandler(void)   //TIM5中断
 
 	if (TIM_GetITStatus(TIM5, TIM_IT_Update) != RESET)  //检查TIM5更新中断发生与否
 	{
-		TIM_ClearITPendingBit(TIM5, TIM_IT_Update  );  //清除TIMx更新中断标志 
+		TIM_ClearITPendingBit(TIM5, TIM_IT_Update  );  //清除TIMx更新中断标志
 		LED1=!LED1;
-		if((secury_chip_ckeck>=CHIP_CHECK_FREQUENCY)&&(main_busy!=1)){
+		if(flag_safe_soc==0){//安全芯片可用时 
+		
+		if((secury_chip_ckeck>=CHIP_CHECK_FREQUENCY)&&(usart1_works==0)&&(usart2_works==0)){//计数到5秒钟，当串口1、2都空闲时，开始查询，否则等待下一次中断时重新判断
 			frame_send_buf_chip[index_frame_send_chip]='$';
 			index_frame_send_chip++;
 			frame_send_buf_chip[index_frame_send_chip]='s';
@@ -191,17 +199,23 @@ void TIM5_IRQHandler(void)   //TIM5中断
 			index_frame_send_chip++;
 			frame_send_buf_chip[index_frame_send_chip]=XOR(frame_send_buf_chip,index_frame_send_chip);
 			index_frame_send_chip++;
-			
+			frame_send_buf_chip[index_frame_send_chip]='\r';
+			index_frame_send_chip++;
+			frame_send_buf_chip[index_frame_send_chip]='\n';
+			index_frame_send_chip++;
 			for(t=0;t<index_frame_send_chip;t++)
 			{
 				USART_SendData(USART2, frame_send_buf_chip[t]);  //向串口2发送数据
 				while(USART_GetFlagStatus(USART2,USART_FLAG_TC)!=SET);//等待发送结束
 			}
-
+			flag_safe_soc=1;//查询前先标记不可用，串口2收到应答后再标记为可用
 			secury_chip_ckeck=0;		
 		}else{
 			secury_chip_ckeck++;
 		}
+	   }else{//检测到上次置的不可用状态维持到了第二次查询，认为安全芯片故障
+	   	    LED0=0;
+	   }
 	}
 }
 

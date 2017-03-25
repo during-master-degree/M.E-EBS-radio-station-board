@@ -130,9 +130,12 @@ void uart_init(u32 bound){
 
 }
 
-extern u8 main_busy;//主循环中正在执行
-extern u8 flag_frame_processing;//收到的数据帧正在处理标志位。1:处理中;0:空闲;
+//extern u8 flag_frame_processing;//收到的数据帧正在处理标志位。1:处理中;0:空闲;
 u8 flag_frame_sync=0;//串口1数据帧同步标志位
+extern u8 usart2_works;//串口2工作状态指示。0：空闲；1：发送连接帧；2：接收连接反馈帧；3：发送数据帧；4：接收数据帧(包括重传帧)；
+extern u8 usart1_works;//串口1工作状态指示。0：空闲；1：接收连接帧；2：发送连接反馈帧；3：接收频谱扫描帧；4：发送频谱扫描反馈帧；
+				  //5:接收控制帧;6:发送控制反馈帧;7:接收数据帧;8:发送数据反馈帧(包括重传帧);9：数据帧无线传输中；
+
 void USART1_IRQHandler(void)                	//串口1中断服务程序
 	{
 	u8 Res;
@@ -146,12 +149,12 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 		Res =USART_ReceiveData(USART1);//(USART1->DR);	//读取接收到的数据
 		if(Res=='$'){flag_frame_sync=1;USART_RX_STA=0;}//一帧数据中多次出现$，则从最后的一个$开始真正存储
 		if(flag_frame_sync==1){//开始本次接收
-		if(main_busy==1){
-			main_busy=0;
+		if(usart1_works==4){//频谱扫描中，允许被中断
+			usart1_works=0;
 			USART_RX_STA=0;
 		}
 
-		if(((USART_RX_STA&0x8000)==0)&&(flag_frame_processing==0))//接收未完成
+		if(((USART_RX_STA&0x8000)==0)&&(usart1_works==0))//接收未完成
 		{
 			 if(USART_RX_STA&0x4000)//接收到了0x0d
 				{
@@ -159,7 +162,7 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 				else {
 					USART_RX_STA|=0x8000;	//接收完成了
 					flag_frame_sync=0;//准备下次接收
-//					USART_ITConfig(USART1, USART_IT_RXNE, DISABLE);//关闭中断
+					USART_ITConfig(USART1, USART_IT_RXNE, DISABLE);//关闭中断
 					} 
 				}
 			 else //还没收到0X0D
@@ -246,6 +249,7 @@ void uart2_init(u32 bound)
 	}
 
 u8 flag_frame_sync_usart2=0;//串口2数据帧同步标志位
+extern u8 flag_safe_soc;//安全芯片是否可用标志位。0：可用；1：不可用；
 void USART2_IRQHandler(void)                	//串口2中断服务程序
 	{
 	u8 Res;		//只可以存放一个字节的数据
@@ -257,12 +261,13 @@ void USART2_IRQHandler(void)                	//串口2中断服务程序
 		Res =USART_ReceiveData(USART2);//(USART1->DR);	//读取接收到的数据
 		if(Res=='$'){flag_frame_sync_usart2=1;USART2_RX_STA=0;}
 		if(flag_frame_sync_usart2==1){//开始本次接收
+			flag_safe_soc=0;//安全芯片可用
 //		if(main_busy==1){//认证帧组帧时，不允许被新帧打断
 //			main_busy=0;
 //			USART_RX_STA=0;
 //		}
 
-		if(((USART2_RX_STA&0x8000)==0)&&(flag_frame_processing==0))//接收未完成
+		if(((USART2_RX_STA&0x8000)==0)&&(usart2_works==0))//接收未完成
 		{
 			 if(USART2_RX_STA&0x4000)//接收到了0x0d
 				{
