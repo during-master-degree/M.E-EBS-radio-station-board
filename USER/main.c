@@ -149,22 +149,30 @@ int main(void)
 						for(t=0;t<safe_total_bytes;t++){//把密文拆成比特流
 							for (i=3;i>=0;i--)
 							{
-								safe_miwen[safe_miwen_index]=((USART2_RX_BUF[t]-0x30)&(0x01<<i))?1:0; 
+								safe_miwen[safe_miwen_index]=((USART2_RX_BUF[t+9]-0x30)&(0x01<<i))?1:0; 
 								safe_miwen_index++;
 							}
 						}
 	///////////////////////////////////////////1/////////////////////////////////////////////////////
-//						USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
-//						for(t=0;t<84;t++)
-//						 {
-//							USART_SendData(USART1, safe_mingwen[t]);//向串口发送数据
-//							while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
-//						 }
-//						 for(t=0;t<384;t++)
-//						 {
-//							USART_SendData(USART1, safe_miwen[t]);//向串口发送数据
-//							while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
-//						 }
+						USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
+
+						for(t=0;t<84;t++)
+						 {
+				//			USART_SendData(USART1, safe_mingwen[t]);//向串口发送数据
+				//			while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
+							printf("%d",safe_mingwen[t]);
+						 }
+						 for(t=0;t<384;t++)
+						 {
+				//			USART_SendData(USART1, safe_miwen[t]);//向串口发送数据
+				//			while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
+							printf("%d",safe_miwen[t]);
+						 }
+						 for(t=0;t<len1;t++)
+						 {
+							USART_SendData(USART1, USART2_RX_BUF[t]);//向串口发送数据
+							while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
+						 }
    ///////////////////////////////////////////1 end//////////////////////////////////////////////////////
 						//明文密文开始格雷编码，组帧，发送
 						fm_frame_index_bits=25;//FM比特流数组重置
@@ -227,7 +235,7 @@ int main(void)
 
 
 
-/******************************************************************串口1接收的数据帧，发送处理************************************************************************************/
+/**************************************************串口1接收的数据帧，发送处理************************************************************************/
 		if(flag_byte_ready==1){//数据保存本地成功
 			usart1_works=9;//数据无线传输中
 			if(flag_safe_frame==1){//认证帧				
@@ -472,7 +480,7 @@ int main(void)
 					if((fm_total_bytes==FRAME_WAKEUP_BROADCAST )||(fm_total_bytes==FRAME_WAKEUP_UNICAST  )||(fm_total_bytes==FRAME_WAKEUP_MULTICAST  )||(fm_total_bytes==FRAME_CONTROL  )||(fm_total_bytes==FRAME_SECURTY  )){
 						for(t=0;t<fm_total_bytes;t++){
 							if((fm_total_bytes==FRAME_WAKEUP_BROADCAST)||(fm_total_bytes==FRAME_WAKEUP_UNICAST)||(fm_total_bytes==FRAME_WAKEUP_MULTICAST)){
-								fm_frame_byte[fm_frame_index_byte]=USART_RX_BUF[t+9]-0x30;//唤醒帧中加入了一个字节，所以唤醒帧与控制帧的数据起始位没有对齐
+								fm_frame_byte[fm_frame_index_byte]=USART_RX_BUF[t+9]-0x30;//唤醒帧中加入了一个字节，所以唤醒帧与认证帧的数据起始位没有对齐
 							}else{fm_frame_byte[fm_frame_index_byte]=USART_RX_BUF[t+8]-0x30;}
 							fm_frame_index_byte++;
 						}
