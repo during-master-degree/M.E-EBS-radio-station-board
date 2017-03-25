@@ -193,6 +193,7 @@ int main(void)
 							}							
 						}
 						RDA5820_TX_Mode();			//发送模式
+						RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
 						TIM_Cmd(TIM5, DISABLE); //失能TIM5
 						TIM_Cmd(TIM6, ENABLE); //使能TIM6
 						TIM_Cmd(TIM7, ENABLE); //使能TIM7
@@ -252,6 +253,7 @@ int main(void)
 					}
 				}
 				RDA5820_TX_Mode();//发送模式
+				RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
 				TIM_Cmd(TIM5, DISABLE); //失能TIM5，避免产生16ms的中断干扰无线发送
 				TIM_Cmd(TIM6, ENABLE); //使能TIMx
 				TIM_Cmd(TIM7, ENABLE); //使能TIMx

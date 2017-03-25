@@ -124,7 +124,9 @@ void TIM3_IRQHandler(void)   //TIM3中断
 				fm_frame_index_byte=0;//字节流数组清空
 				
 				USART2_RX_STA=0;//处理完毕，允许接收下一帧。防止循环进入
-				if(flag_voice_broad==0)RDA5820_RX_Mode();			//接收模式
+				if(flag_voice_broad==0){
+					RDA5820_RX_Mode();			//接收模式
+				}
 				USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
 				USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//打开中断
 			}//数据帧循环发送
@@ -170,7 +172,9 @@ void TIM3_IRQHandler(void)   //TIM3中断
 			fm_frame_index_byte=0;//字节流数组清空
 			
 			USART2_RX_STA=0;//处理完毕，允许接收下一帧。防止循环进入
-			if(flag_voice_broad==0)RDA5820_RX_Mode();			//接收模式
+			if(flag_voice_broad==0){
+				RDA5820_RX_Mode();			//接收模式
+			}
 			USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
 //			USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//打开中断
 		}
