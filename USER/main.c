@@ -54,7 +54,8 @@ u8 wakeup_times=0;//唤醒帧发送的次数
 int main(void)
 {	 
 	u16 freqset=FREQUENCY_MIN;//接收、发射频点
-	u16 send_frequency=FREQUENCY_MIN;//发射频点，只保存发射的频率  
+	u16 send_frequency=FREQUENCY_MIN;//发射频点，只保存发射的频率 
+	u16 fre_tmp=0;//计算频点的中间变量 
 	u16 t=0,j=0;
 	signed char i=0;//字节转比特流
 	u16 len,len1;
@@ -99,7 +100,8 @@ int main(void)
 	RDA5820_TxPAG_Set(63);	//发射功率为最大.	
 	RDA5820_TX_Mode();			//发送模式
 	STMFLASH_Read(FLASH_SAVE_ADDR,(u16*)flash_temp,SIZE);
-	if((flash_temp[0]>FREQUENCY_MIN)&&(flash_temp[0]<FREQUENCY_MAX)){send_frequency=flash_temp[0];}
+	fre_tmp=flash_temp[0]*10+FREQUENCY_MIN;
+	if((fre_tmp>FREQUENCY_MIN)&&(fre_tmp<FREQUENCY_MAX)){send_frequency=fre_tmp;}
 	else{send_frequency=FREQUENCY_MIN;}
 	RDA5820_Freq_Set(send_frequency);	//设置频率
  	while(1)
