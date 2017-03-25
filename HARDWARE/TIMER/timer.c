@@ -2,6 +2,7 @@
 #include "led.h"
 #include "usart.h"
 #include "delay.h"
+#include "rda5820.h"
 //////////////////////////////////////////////////////////////////////////////////	 
   	 
 
@@ -90,6 +91,7 @@ extern u8 flag_is_wakeup_frame;//当前帧是唤醒帧的标志位
 extern u8 wakeup_times;//唤醒帧发送的次数
 u8 wakeup_times_index=0;//唤醒帧发送次数的索引值
 u8 delay_index=0;//帧间隔延迟的索引下标
+extern u8 flag_voice_broad;//是否正在广播。0：没有广播；1：正在广播；
 //定时器3中断服务程序
 void TIM3_IRQHandler(void)   //TIM3中断
 {
@@ -102,13 +104,13 @@ void TIM3_IRQHandler(void)   //TIM3中断
 		if(flag_is_wakeup_frame==0){//非唤醒帧
 			if(t<fm_frame_index_bits)//广播25+120*2；单播25+144*2；组播25+168*2；控制帧：25+84*2；
 			{  			
-				PAout(7)=fm_frame_bits[t];//frame_control[t];PBout(6)
+				PBout(6)=fm_frame_bits[t];//frame_control[t];
 				timer_67_stop=0;
 				t++;
 			}else//帧发送完毕后的清理
 			{			
 				TIM_Cmd(TIM3,DISABLE);
-				PAout(7)=0;			
+				PBout(6)=0;			
 				t=0;
 				timer_67_stop=1;
 				delay_ms(10);//让FSK信号再振一会
@@ -122,6 +124,7 @@ void TIM3_IRQHandler(void)   //TIM3中断
 				fm_frame_index_byte=0;//字节流数组清空
 				
 				USART2_RX_STA=0;//处理完毕，允许接收下一帧。防止循环进入
+				if(flag_voice_broad==0)RDA5820_RX_Mode();			//接收模式
 				USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
 				USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//打开中断
 			}//数据帧循环发送
@@ -131,11 +134,11 @@ void TIM3_IRQHandler(void)   //TIM3中断
 		if((flag_is_wakeup_frame==1)&&(wakeup_times_index<wakeup_times)){//唤醒帧
 			if(t<fm_frame_index_bits)//广播25+120*2；单播25+144*2；组播25+168*2；控制帧：25+84*2；
 			{  			
-				PAout(7)=fm_frame_bits[t];//frame_control[t];
+				PBout(6)=fm_frame_bits[t];//frame_control[t];
 				timer_67_stop=0;
 				t++;
 			}else if(t>=fm_frame_index_bits){//此处要用else嵌套，否则信号电平不能维持一个码元时间
-				PAout(7)=0;
+				PBout(6)=0;
 				if(delay_index>=FRAME_INTERVAL){//发送完一帧唤醒帧，停顿一下，给终端留下处理时间
 					wakeup_times_index++;//停顿完毕，表示一次唤醒帧完成，准备进入下一次
 					delay_index=0;//索引归零
@@ -153,7 +156,7 @@ void TIM3_IRQHandler(void)   //TIM3中断
 			wakeup_times=0;
 
 			TIM_Cmd(TIM3,DISABLE);
-			PAout(7)=0;			
+			PBout(6)=0;			
 //			t=0;
 //			timer_67_stop=1;
 //			delay_ms(10);//让FSK信号再振一会
@@ -167,6 +170,7 @@ void TIM3_IRQHandler(void)   //TIM3中断
 			fm_frame_index_byte=0;//字节流数组清空
 			
 			USART2_RX_STA=0;//处理完毕，允许接收下一帧。防止循环进入
+			if(flag_voice_broad==0)RDA5820_RX_Mode();			//接收模式
 			USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
 //			USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//打开中断
 		}
@@ -435,7 +439,7 @@ void TIM4_IRQHandler(void)   //TIM4中断
 			if(flag_safe_soc_ok==1){//安全芯片应答超时
 				LED0=0;//打开警示灯
 				TIM_Cmd(TIM3,DISABLE);
-			    PAout(7)=0;
+			    PBout(6)=0;
 				timer_67_stop=1;			  				
 				TIM_Cmd(TIM6,DISABLE);
 				TIM_Cmd(TIM7,DISABLE);
