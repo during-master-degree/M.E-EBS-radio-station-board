@@ -269,7 +269,7 @@ void USART2_IRQHandler(void)                	//串口2中断服务程序
 //			USART_RX_STA=0;
 //		}
 
-		if(((USART2_RX_STA&0x8000)==0)&&(usart2_works==0))//接收未完成
+		if(((USART2_RX_STA&0x8000)==0)&&((usart2_works==0)||(usart2_works==1)))//接收未完成
 		{
 			 if(USART2_RX_STA&0x4000)//接收到了0x0d
 				{

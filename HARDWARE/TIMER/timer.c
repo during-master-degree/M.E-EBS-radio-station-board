@@ -173,22 +173,29 @@ unsigned char XOR(unsigned char *BUFF, u16 len)
 
 
 u8 secury_chip_ckeck=0;//安全芯片查询位，计数到5即5秒，查询一次
-u8 frame_send_buf_chip[10]={0};//串口2发送查询帧的缓冲区
+u8 frame_send_buf_chip[15]={0};//串口2发送查询帧的缓冲区
 u8 index_chipcheck_times=0;//芯片查询次数
 extern u8 flag_safe_soc_ok;//安全芯片超时与应答。1：未应答；0：已应答；
+u8 first_powerup=0;//记录首次上电。首次发送查询帧，总会漏掉第一个字符，不知为何
 void TIM5_IRQHandler(void)   //TIM5中断
 {
 	u16 ttt=0;
 	u8 index_frame_send_chip=0;//串口2连接帧下标
+	u8 xor_sum=0;
 
 	if (TIM_GetITStatus(TIM5, TIM_IT_Update) != RESET)  //检查TIM5更新中断发生与否
 	{		
 		LED1=!LED1;		
-		if((secury_chip_ckeck>=CHIP_CHECK_FREQUENCY)&&(USART_RX_STA==0)&&(USART2_RX_STA==0)&&(usart1_works==0)&&(usart2_works==0)){//计数到5秒钟，当串口1、2都空闲时，开始查询，否则等待下一次中断时重新判断
+		if((secury_chip_ckeck>=CHIP_CHECK_FREQUENCY)&&(USART_RX_STA==0)&&(USART2_RX_STA==0)&&(usart1_works==0)&&((usart2_works==0)||(usart2_works==1))){//计数到5秒钟，当串口1、2都空闲时，开始查询，否则等待下一次中断时重新判断
 			flag_safe_soc_ok=1;//查询前先标记不可用，串口2收到应答后再标记为可用
 			LED0=0;//标记不可用
 			usart2_works=1;//发送连接帧
 			index_frame_send_chip=0;
+			if(first_powerup==0){
+			first_powerup=1;
+				frame_send_buf_chip[index_frame_send_chip]=0;//前导
+				index_frame_send_chip++;
+			}
 			frame_send_buf_chip[index_frame_send_chip]='$';
 			index_frame_send_chip++;
 			frame_send_buf_chip[index_frame_send_chip]='s';
@@ -203,7 +210,9 @@ void TIM5_IRQHandler(void)   //TIM5中断
 			else index_chipcheck_times++;
 			frame_send_buf_chip[index_frame_send_chip]=index_chipcheck_times;
 			index_frame_send_chip++;
-			frame_send_buf_chip[index_frame_send_chip]=XOR(frame_send_buf_chip,index_frame_send_chip);
+			xor_sum=XOR(frame_send_buf_chip,index_frame_send_chip);
+			if(xor_sum==0x0D)xor_sum++;
+			frame_send_buf_chip[index_frame_send_chip]=xor_sum;
 			index_frame_send_chip++;
 			frame_send_buf_chip[index_frame_send_chip]='\r';
 			index_frame_send_chip++;
@@ -217,7 +226,7 @@ void TIM5_IRQHandler(void)   //TIM5中断
 
 			secury_chip_ckeck=0;		
 		}else{
-  			if(secury_chip_ckeck>50)secury_chip_ckeck=1;
+  			if(secury_chip_ckeck>50)secury_chip_ckeck=CHIP_CHECK_FREQUENCY;
 			else  secury_chip_ckeck++;
 			
 		}

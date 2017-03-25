@@ -132,6 +132,19 @@ int main(void)
 								safe_miwen_index++;
 							}
 						}
+	///////////////////////////////////////////1/////////////////////////////////////////////////////
+//						USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
+//						for(t=0;t<84;t++)
+//						 {
+//							USART_SendData(USART1, safe_mingwen[t]);//向串口发送数据
+//							while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
+//						 }
+//						 for(t=0;t<384;t++)
+//						 {
+//							USART_SendData(USART1, safe_miwen[t]);//向串口发送数据
+//							while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
+//						 }
+   ///////////////////////////////////////////1 end//////////////////////////////////////////////////////
 						//明文密文开始格雷编码，组帧，发送
 						fm_frame_index_bits=25;//FM比特流数组重置
 						for (t=0;t<(safe_mingwen_index/12);t++)//明文，格雷编码次数
@@ -193,10 +206,12 @@ int main(void)
 			if(flag_safe_frame==1){//认证帧				
 				flag_safe_soc_ok=1;//标记为安全芯片未应答
 				LED0=0;//打开警示灯
-				safe_soc();//把明文发送给安全芯片	
+				usart2_works=3;//标记串口2开始发送完明文
+				safe_soc();//把明文发送给安全芯片
+				usart2_works=0;//标记串口2刚发送完明文	
 				TIM4->ARR=2999;//重新状态定时器的值,300ms超时查询
 				TIM_Cmd(TIM4,ENABLE);//打开超时判断定时器
-				usart2_works=3;//标记串口2刚发送完明文
+				
 				safe_mingwen_index=0;//将明文拆为比特流
 				for(t=0;t<21;t++){
 					for (i=3;i>=0;i--)
