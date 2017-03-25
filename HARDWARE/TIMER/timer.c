@@ -359,9 +359,9 @@ void tim3_pin_init(void){
 	 GPIO_Init(GPIOB, &GPIO_InitStructure);
 	 GPIO_ResetBits(GPIOB,GPIO_Pin_8); //讨厌的蜂鸣器
 
-	 GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;				 //PAout(7):fsk控制信号
+	 GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7|GPIO_Pin_4;				 //PAout(7):fsk控制信号,PA(4),给安全芯片上电
 	 GPIO_Init(GPIOA, &GPIO_InitStructure);
-	 
+	 GPIO_SetBits(GPIOA,GPIO_Pin_4); //安全芯片
 }
 
 //定时器6中断服务程序
