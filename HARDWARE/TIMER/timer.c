@@ -140,7 +140,7 @@ void TIM5_Int_Init(u16 arr,u16 psc)
 	NVIC_Init(&NVIC_InitStructure);  //初始化NVIC寄存器
 
 
-	TIM_Cmd(TIM5, ENABLE);  //使能TIMx					 
+	TIM_Cmd(TIM5, ENABLE);  //打开TIMx					 
 }
 
 
@@ -153,6 +153,115 @@ void TIM5_IRQHandler(void)   //TIM5中断
 		}
 }
 
+
+/***************************FSK*****************************/
+void TIM6_Int_Init(u16 arr,u16 psc)
+{
+    TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
+	NVIC_InitTypeDef NVIC_InitStructure;
+
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM6, ENABLE); //时钟使能
+	
+	//定时器TIM3初始化
+	TIM_TimeBaseStructure.TIM_Period = arr; //设置在下一个更新事件装入活动的自动重装载寄存器周期的值	
+	TIM_TimeBaseStructure.TIM_Prescaler =psc; //设置用来作为TIMx时钟频率除数的预分频值
+	TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1; //设置时钟分割:TDTS = Tck_tim
+	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;  //TIM向上计数模式
+	TIM_TimeBaseInit(TIM6, &TIM_TimeBaseStructure); //根据指定的参数初始化TIMx的时间基数单位
+ 
+	TIM_ITConfig(TIM6,TIM_IT_Update,ENABLE ); //使能指定的TIM3中断,允许更新中断
+
+	//中断优先级NVIC设置
+	NVIC_InitStructure.NVIC_IRQChannel = TIM6_IRQn;  //TIM3中断
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;  //先占优先级0级
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 3;  //从优先级3级
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE; //IRQ通道被使能
+	NVIC_Init(&NVIC_InitStructure);  //初始化NVIC寄存器
+
+
+	TIM_Cmd(TIM6, DISABLE);  //关闭TIMx							 
+}
+
+void TIM7_Int_Init(u16 arr,u16 psc)
+{
+    TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
+	NVIC_InitTypeDef NVIC_InitStructure;
+
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM7, ENABLE); //时钟使能
+	
+	//定时器TIM3初始化
+	TIM_TimeBaseStructure.TIM_Period = arr; //设置在下一个更新事件装入活动的自动重装载寄存器周期的值	
+	TIM_TimeBaseStructure.TIM_Prescaler =psc; //设置用来作为TIMx时钟频率除数的预分频值
+	TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1; //设置时钟分割:TDTS = Tck_tim
+	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;  //TIM向上计数模式
+	TIM_TimeBaseInit(TIM7, &TIM_TimeBaseStructure); //根据指定的参数初始化TIMx的时间基数单位
+ 
+	TIM_ITConfig(TIM7,TIM_IT_Update,ENABLE ); //使能指定的TIM3中断,允许更新中断
+
+	//中断优先级NVIC设置
+	NVIC_InitStructure.NVIC_IRQChannel = TIM7_IRQn;  //TIM3中断
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;  //先占优先级0级
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 3;  //从优先级3级
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE; //IRQ通道被使能
+	NVIC_Init(&NVIC_InitStructure);  //初始化NVIC寄存器
+
+
+	TIM_Cmd(TIM7, DISABLE);  //关闭TIMx							 
+}
+
+void tim3_pin_init(void){
+     GPIO_InitTypeDef  GPIO_InitStructure;
+	 RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB|RCC_APB2Periph_GPIOA, ENABLE);//使能PB,端口时钟
+	 GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8|GPIO_Pin_9;				 //LED0-->PB.5 端口配置
+	 GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP; 		 //推挽输出
+	 GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;		 //IO口速度为50MHz
+	 GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+	 GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;				 //LED0-->PB.5 端口配置
+	 GPIO_Init(GPIOA, &GPIO_InitStructure);
+}
+
+//定时器6中断服务程序
+unsigned int index_tim6=0;
+void TIM6_IRQHandler(void)   //TIM3中断
+{
+		if (TIM_GetITStatus(TIM6, TIM_IT_Update) != RESET)  //检查TIM3更新中断发生与否
+		{
+		TIM_ClearITPendingBit(TIM6, TIM_IT_Update);  //清除TIMx更新中断标志 
+//			if(index_tim6<(19+511-10))
+//			{
+				PBout(8)=~PBout(8);
+//				index_tim6++;
+//				
+//			}else//帧发送完毕后的清理
+//			{
+//				PBout(8)=0;
+//				index_tim6=0;			
+//			}//数据帧循环发送
+				
+		}
+}
+
+//定时器7中断服务程序
+unsigned int index_tim7=0;
+void TIM7_IRQHandler(void)   //TIM3中断
+{
+   	if (TIM_GetITStatus(TIM7, TIM_IT_Update) != RESET)  //检查TIM3更新中断发生与否
+		{
+		TIM_ClearITPendingBit(TIM7, TIM_IT_Update);  //清除TIMx更新中断标志 
+//			if(index_tim7<(19+511-10))
+//			{
+				PBout(9)=~PBout(9);
+//				index_tim7++;
+//				
+//			}else//帧发送完毕后的清理
+//			{
+//				PBout(9)=0;
+//				index_tim7=0;			
+//			}//数据帧循环发送
+				
+		}
+}
 
 
 

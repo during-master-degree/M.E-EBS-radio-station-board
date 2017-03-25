@@ -16,5 +16,8 @@
 
 
 void TIM3_Int_Init(u16 arr,u16 psc);
-void TIM5_Int_Init(u16 arr,u16 psc); 
+void TIM5_Int_Init(u16 arr,u16 psc);
+void TIM6_Int_Init(u16 arr,u16 psc);
+void TIM7_Int_Init(u16 arr,u16 psc);
+void tim3_pin_init(void);  
 #endif

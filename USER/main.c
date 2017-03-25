@@ -52,8 +52,11 @@ int main(void)
 	uart_init(115200);	 	//串口初始化为9600
 //	KEY_Init();
  	LED_Init();			     //LED端口初始化
-	TIM5_Int_Init(4999,7199);//10Khz的计数频率，计数到5000为500ms
-	TIM3_Int_Init(9,7199);//1Khz的计数频率 
+	TIM5_Int_Init(7999,7199);//10Khz的计数频率，计数到8000为800ms
+	TIM3_Int_Init(9,7199);//1Khz的计数频率
+	TIM7_Int_Init(4,1199);//6K周期方波
+	TIM6_Int_Init(4,719);//10k周期方波
+	tim3_pin_init(); 
 //	LCD_Init();			 	
 // 	usmart_dev.init(72);	//初始化USMART	
 // 	Audiosel_Init();
