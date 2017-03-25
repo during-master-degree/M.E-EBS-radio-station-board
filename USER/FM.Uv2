@@ -21,6 +21,7 @@ File 2,1,<..\HARDWARE\AUDIOSEL\audiosel.c><audiosel.c>
 File 2,1,<..\HARDWARE\RDA5820\rda5820.c><rda5820.c>
 File 2,1,<..\HARDWARE\TIMER\timer.c><timer.c>
 File 2,1,<..\HARDWARE\gray\gray.c><gray.c>
+File 2,1,<..\HARDWARE\STMFLASH\stmflash.c><stmflash.c>
 File 3,1,<..\SYSTEM\delay\delay.c><delay.c>
 File 3,1,<..\SYSTEM\sys\sys.c><sys.c>
 File 3,1,<..\SYSTEM\usart\usart.c><usart.c>
@@ -32,6 +33,7 @@ File 5,1,<..\STM32F10x_FWLib\src\stm32f10x_gpio.c><stm32f10x_gpio.c>
 File 5,1,<..\STM32F10x_FWLib\src\stm32f10x_rcc.c><stm32f10x_rcc.c>
 File 5,1,<..\STM32F10x_FWLib\src\stm32f10x_usart.c><stm32f10x_usart.c>
 File 5,1,<..\STM32F10x_FWLib\src\stm32f10x_tim.c><stm32f10x_tim.c>
+File 5,1,<..\STM32F10x_FWLib\src\stm32f10x_flash.c><stm32f10x_flash.c>
 File 6,1,<..\USMART\usmart.c><usmart.c>
 File 6,1,<..\USMART\usmart_config.c><usmart_config.c>
 File 6,1,<..\USMART\usmart_str.c><usmart_str.c>
@@ -95,7 +97,7 @@ Options 1,0,0  // Target 'Target 1'
  ADSCMISC ()
  ADSCDEFN (STM32F10X_HD,USE_STDPERIPH_DRIVER)
  ADSCUDEF ()
- ADSCINCD (..\HARDWARE\LED;..\SYSTEM\delay;..\SYSTEM\sys;..\SYSTEM\usart;..\USER;..\STM32F10x_FWLib\inc;..\CORE;..\HARDWARE\KEY;..\HARDWARE\LCD;..\HARDWARE\RTC;..\HARDWARE\RTC;..\HARDWARE\WKUP;..\HARDWARE\ADC;..\HARDWARE\DAC;..\HARDWARE\DMA;..\HARDWARE\IIC;..\HARDWARE\24CXX;..\HARDWARE\RDA5820;..\HARDWARE\AUDIOSEL;..\USMART;..\HARDWARE\TIMER;..\HARDWARE\gray)
+ ADSCINCD (..\HARDWARE\LED;..\SYSTEM\delay;..\SYSTEM\sys;..\SYSTEM\usart;..\USER;..\STM32F10x_FWLib\inc;..\CORE;..\HARDWARE\KEY;..\HARDWARE\LCD;..\HARDWARE\RTC;..\HARDWARE\RTC;..\HARDWARE\WKUP;..\HARDWARE\ADC;..\HARDWARE\DAC;..\HARDWARE\DMA;..\HARDWARE\IIC;..\HARDWARE\24CXX;..\HARDWARE\RDA5820;..\HARDWARE\AUDIOSEL;..\USMART;..\HARDWARE\TIMER;..\HARDWARE\gray;..\HARDWARE\STMFLASH)
  ADSASFLG { 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }
  ADSAMISC ()
  ADSADEFN ()

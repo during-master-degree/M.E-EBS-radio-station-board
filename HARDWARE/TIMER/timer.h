@@ -13,7 +13,9 @@
 //Copyright(C) 广州市星翼电子科技有限公司 2009-2019
 //All rights reserved									  
 //////////////////////////////////////////////////////////////////////////////////   
-#define CHIP_CHECK_FREQUENCY 6	
+#define CHIP_CHECK_FREQUENCY 6
+#define FRAME_INTERVAL 100//相邻两帧的间隔
+#define FSK_EXTEND 10//fsk信号比实际控制信号前后各延长的毫秒数	
 
 void TIM3_Int_Init(u16 arr,u16 psc);
 void TIM4_Int_Init(u16 arr,u16 psc);

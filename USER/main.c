@@ -9,7 +9,7 @@
 #include "timer.h"
 //#include "usmart.h"
 #include "gray.h"
-
+#include "stmflash.h"
 
 #define FREQUENCY_MIN 7600
 #define FREQUENCY_MAX 10100
@@ -19,6 +19,10 @@
 #define FRAME_WAKEUP_MULTICAST 168*2/4
 #define FRAME_CONTROL 84*2/4
 #define FRAME_SECURTY 84/4
+
+#define FLASH_SAVE_ADDR  0X08070000 //设置FLASH 保存地址(必须为偶数)
+u8 TEXT_Buffer[2]={0};
+#define SIZE sizeof(TEXT_Buffer)	 			  	//数组长度
 
 u8 index_frame_send=0;//串口回复信息帧下标
 u8 frame_send_buf[100]={0};//串口回传缓冲区
@@ -43,6 +47,10 @@ u8 index_frame_safe=0;//认证帧数组下表，发给安全芯片
 u8 index_safe_times=0;//认证帧发送次数计数器
 u8 flag_safe_frame=0;//本帧是认证帧
 u8 flag_safe_soc_ok=0;//安全芯片超时与应答。1：未应答（不可用）；0：已应答（可用）；
+
+u8 flag_is_wakeup_frame=0;//当前帧是唤醒帧的标志位
+u8 wakeup_times=0;//唤醒帧发送的次数
+
 int main(void)
 {	 
 	u16 freqset=FREQUENCY_MIN;//接收、发射频点
@@ -60,6 +68,8 @@ int main(void)
 	u8 before_gray[12]={0};//格雷编码前的12位的串
 	u8 after_gray[24]={0};//格雷编码后的24位的串
 	
+	u8 xor_sum=0;
+	u8 flash_temp[2]={0};
 //	u16 times=0;
 
 //	u8 bit_sync[14]={1,0,1,0,1,0,1,0,1,0,1,0,1,0};//位同步头
@@ -88,6 +98,9 @@ int main(void)
 	RDA5820_TxPGA_Set(3);	//信号增益设置为3
 	RDA5820_TxPAG_Set(63);	//发射功率为最大.	
 	RDA5820_TX_Mode();			//发送模式
+	STMFLASH_Read(FLASH_SAVE_ADDR,(u16*)flash_temp,SIZE);
+	if((flash_temp[0]>FREQUENCY_MIN)&&(flash_temp[0]<FREQUENCY_MAX)){send_frequency=flash_temp[0];}
+	else{send_frequency=FREQUENCY_MIN;}
 	RDA5820_Freq_Set(send_frequency);	//设置频率
  	while(1)
 	{
@@ -108,7 +121,9 @@ int main(void)
 			len1=USART2_RX_STA&0x3fff;//得到此次接收到的数据长度
 
 			if((USART2_RX_BUF[0]=='$')&&(len1>0)){
-				if(USART2_RX_BUF[len1-1]==XOR(USART2_RX_BUF,len1-1)){
+				xor_sum=XOR(USART2_RX_BUF,len1-1);
+				if((xor_sum=='$')||(xor_sum==0x0d)){xor_sum++;}
+				if(USART2_RX_BUF[len1-1]==xor_sum){
  					/*******************************************安全芯片连接反馈帧**********************************************************************************/
 					if((USART2_RX_BUF[1]=='s')&&(USART2_RX_BUF[2]=='a')&&(USART2_RX_BUF[3]=='f')&&(USART2_RX_BUF[4]=='_')&&(USART2_RX_BUF[5]=='_')){//连接帧
 						usart2_works=2;//接收反馈的连接帧
@@ -175,9 +190,11 @@ int main(void)
 						}
 
 						TIM_Cmd(TIM5, DISABLE); //失能TIM5
-						TIM_Cmd(TIM3, ENABLE); //使能TIM3
 						TIM_Cmd(TIM6, ENABLE); //使能TIM6
-						TIM_Cmd(TIM7, ENABLE); //使能TIM7					
+						TIM_Cmd(TIM7, ENABLE); //使能TIM7
+						delay_ms(10);//让FSK信号先起振起来
+						TIM_Cmd(TIM3, ENABLE); //使能TIM3
+											
 
 						USART2_RX_STA=0;//处理完毕，允许接收下一帧。防止循环进入
 					}
@@ -232,10 +249,10 @@ int main(void)
 				}
 
 				TIM_Cmd(TIM5, DISABLE); //失能TIM5，避免产生16ms的中断干扰无线发送
-				TIM_Cmd(TIM3, ENABLE); //使能TIMx
 				TIM_Cmd(TIM6, ENABLE); //使能TIMx
 				TIM_Cmd(TIM7, ENABLE); //使能TIMx
-				
+				delay_ms(10);//让FSK信号先起振起来
+				TIM_Cmd(TIM3, ENABLE); //使能TIMx			
 				
 			}
 //			for (temp_frame_byte_index=0;temp_frame_byte_index<fm_frame_index_bits/4;temp_frame_byte_index++)
@@ -260,7 +277,9 @@ int main(void)
 			len=USART_RX_STA&0x3fff;//得到此次接收到的数据长度
 
 			if((USART_RX_BUF[0]=='$')&&(len>0)){
-				if(USART_RX_BUF[len-1]==XOR(USART_RX_BUF,len-1)){
+				xor_sum=XOR(USART_RX_BUF,len-1);
+				if((xor_sum=='$')||(xor_sum==0x0d)){xor_sum++;}
+				if(USART_RX_BUF[len-1]==xor_sum){
 					index_frame_send=0;
  					/*******************************************子板链接判断帧************************************************/
 					if((USART_RX_BUF[1]=='r')&&(USART_RX_BUF[2]=='d')&&(USART_RX_BUF[3]=='y')&&(USART_RX_BUF[4]=='_')){//连接帧
@@ -278,6 +297,9 @@ int main(void)
 						 frame_send_buf[index_frame_send]='_';
 						 index_frame_send++;
 						 frame_send_buf[index_frame_send]=USART_RX_BUF[5];
+						 index_frame_send++;
+						 STMFLASH_Read(FLASH_SAVE_ADDR,(u16*)flash_temp,SIZE);
+						 frame_send_buf[index_frame_send]=flash_temp[0];
 						 index_frame_send++;
 						 frame_send_buf[index_frame_send]=XOR(frame_send_buf,index_frame_send);
 						 index_frame_send++;
@@ -379,7 +401,9 @@ int main(void)
 						 	case 1:
 							break;
 							case 2:
-								send_frequency=USART_RX_BUF[7]*10;
+								send_frequency=USART_RX_BUF[7]*10+FREQUENCY_MIN;
+								TEXT_Buffer[0]=USART_RX_BUF[7];
+								STMFLASH_Write(FLASH_SAVE_ADDR,(u16*)TEXT_Buffer,SIZE);
 								RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
 							break;
 							default:
@@ -421,10 +445,16 @@ int main(void)
 				   		fm_total_bytes=USART_RX_BUF[6]*256+USART_RX_BUF[7];
 					if((fm_total_bytes==FRAME_WAKEUP_BROADCAST )||(fm_total_bytes==FRAME_WAKEUP_UNICAST  )||(fm_total_bytes==FRAME_WAKEUP_MULTICAST  )||(fm_total_bytes==FRAME_CONTROL  )||(fm_total_bytes==FRAME_SECURTY  )){
 						for(t=0;t<fm_total_bytes;t++){
-							fm_frame_byte[fm_frame_index_byte]=USART_RX_BUF[t+8]-0x30;
+							if((fm_total_bytes==FRAME_WAKEUP_BROADCAST)||(fm_total_bytes==FRAME_WAKEUP_UNICAST)||(fm_total_bytes==FRAME_WAKEUP_MULTICAST)){
+								fm_frame_byte[fm_frame_index_byte]=USART_RX_BUF[t+9]-0x30;//唤醒帧中加入了一个字节，所以唤醒帧与控制帧的数据起始位没有对齐
+							}else{fm_frame_byte[fm_frame_index_byte]=USART_RX_BUF[t+8]-0x30;}
 							fm_frame_index_byte++;
 						}
 						if(fm_total_bytes==FRAME_SECURTY){flag_safe_frame=1;}//收到了认证帧
+						if((fm_total_bytes==FRAME_WAKEUP_BROADCAST)||(fm_total_bytes==FRAME_WAKEUP_UNICAST)||(fm_total_bytes==FRAME_WAKEUP_MULTICAST)){
+							flag_is_wakeup_frame=1;//收到了唤醒帧
+							wakeup_times=(USART_RX_BUF[8]-0x30)*3;//每秒钟发送三次唤醒帧
+						}
 						flag_byte_ready=1;//数据帧字节流保存到本地，成功
 				   /*******************数据帧处理，1字节转为4bits，结束*********************************/
 				   		usart1_works=8;//发送数据反馈帧		
@@ -527,6 +557,7 @@ void safe_soc(void){
 		index_frame_safe++;
 	}
 	frame_safe[index_frame_safe]=XOR(frame_safe,index_frame_safe);
+	if((frame_safe[index_frame_safe]=='$')||(frame_safe[index_frame_safe]==0x0d)){frame_safe[index_frame_safe]++;}
 	index_frame_safe++;
 	frame_safe[index_frame_safe]='\r';
 	index_frame_safe++;
