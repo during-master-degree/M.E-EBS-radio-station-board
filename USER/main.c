@@ -100,8 +100,8 @@ int main(void)
 	RDA5820_Init(); 	
 	RDA5820_Band_Set(1);	//设置频段为0:87~108Mhz;1:76~91Mhz;
 	RDA5820_Space_Set(0);	//设置步进为100Khz
-	RDA5820_TxPGA_Set(3);	//信号增益设置为3
-	RDA5820_TxPAG_Set(63);	//发射功率为最大.	
+	RDA5820_TxPGA_Set(1);	//信号增益设置为3
+	RDA5820_TxPAG_Set(8);	//发射功率为最大.	
 	RDA5820_RX_Mode();			//接收模式
 	STMFLASH_Read(FLASH_SAVE_ADDR,(u16*)flash_temp,SIZE);
 	fre_tmp=flash_temp[0]*10+FREQUENCY_MIN;
