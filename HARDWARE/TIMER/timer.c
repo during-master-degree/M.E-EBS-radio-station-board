@@ -1,6 +1,7 @@
 #include "timer.h"
 #include "led.h"
-	
+#include "usart.h"
+
 //////////////////////////////////////////////////////////////////////////////////	 
 //本程序只供学习使用，未经作者许可，不得用于其它任何用途
 //ALIENTEK战舰STM32开发板
@@ -107,6 +108,8 @@ void TIM3_IRQHandler(void)   //TIM3中断
 			PBout(6)=0;
 			t=0;
 			TIM_Cmd(TIM3,DISABLE);
+			TIM_Cmd(TIM6,DISABLE);
+			TIM_Cmd(TIM7,DISABLE);
 			flag_frame_processing=0;
 		}//数据帧循环发送
 		
@@ -144,13 +147,62 @@ void TIM5_Int_Init(u16 arr,u16 psc)
 }
 
 
+
+unsigned char XOR(unsigned char *BUFF, u16 len)
+{
+	unsigned char result=0;
+	u16 i;
+	for(result=BUFF[0],i=1;i<len;i++)
+	{
+		result ^= BUFF[i];
+	}
+	return result;
+}
+
+
+
+u8 secury_chip_ckeck=0;//安全芯片查询位，计数到5即5秒，查询一次
+u8 frame_send_buf_chip[100]={0};//串口回传缓冲区
+u8 index_chipcheck_times=0;//芯片查询次数
+extern u8 main_busy;//主循环中正在执行
 void TIM5_IRQHandler(void)   //TIM5中断
 {
+	u16 t=0;
+	u8 index_frame_send_chip=0;//串口回复信息帧下标
+
 	if (TIM_GetITStatus(TIM5, TIM_IT_Update) != RESET)  //检查TIM5更新中断发生与否
-		{
+	{
 		TIM_ClearITPendingBit(TIM5, TIM_IT_Update  );  //清除TIMx更新中断标志 
 		LED1=!LED1;
+		if((secury_chip_ckeck>=CHIP_CHECK_FREQUENCY)&&(main_busy!=1)){
+			frame_send_buf_chip[index_frame_send_chip]='$';
+			index_frame_send_chip++;
+			frame_send_buf_chip[index_frame_send_chip]='s';
+			index_frame_send_chip++;
+			frame_send_buf_chip[index_frame_send_chip]='a';
+			index_frame_send_chip++;
+			frame_send_buf_chip[index_frame_send_chip]='f';
+			index_frame_send_chip++;
+			frame_send_buf_chip[index_frame_send_chip]='_';
+			index_frame_send_chip++;
+			if(index_chipcheck_times>200){index_chipcheck_times=0;}
+			else index_chipcheck_times++;
+			frame_send_buf_chip[index_frame_send_chip]=index_chipcheck_times;
+			index_frame_send_chip++;
+			frame_send_buf_chip[index_frame_send_chip]=XOR(frame_send_buf_chip,index_frame_send_chip);
+			index_frame_send_chip++;
+			
+			for(t=0;t<index_frame_send_chip;t++)
+			{
+				USART_SendData(USART2, frame_send_buf_chip[t]);  //向串口2发送数据
+				while(USART_GetFlagStatus(USART2,USART_FLAG_TC)!=SET);//等待发送结束
+			}
+
+			secury_chip_ckeck=0;		
+		}else{
+			secury_chip_ckeck++;
 		}
+	}
 }
 
 
@@ -219,6 +271,7 @@ void tim3_pin_init(void){
 
 	 GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;				 //LED0-->PB.5 端口配置
 	 GPIO_Init(GPIOA, &GPIO_InitStructure);
+	 GPIO_ResetBits(GPIOB,GPIO_Pin_8); //讨厌的蜂鸣器
 }
 
 //定时器6中断服务程序

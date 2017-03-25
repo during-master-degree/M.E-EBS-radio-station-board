@@ -3,14 +3,14 @@
 #include "key.h"
 #include "sys.h"
 #include "lcd.h"
-#include "usart.h"	 	 
+#include "usart.h"		 	 
 #include "audiosel.h"
 #include "rda5820.h"
 #include "timer.h"
 //#include "usmart.h"
 
 #define FREQUENCY_MIN 7600
-#define FREQUENCY_MAX 8800
+#define FREQUENCY_MAX 10100
 #define FREQUENCY_POINT (FREQUENCY_MAX-FREQUENCY_MIN)/10+1
 #define FRAME_WAKEUP_BROADCAST 120*2/4
 #define FRAME_WAKEUP_UNICAST 144*2/4
@@ -26,7 +26,7 @@ u16 fm_frame_index_bits=0;//FM广播01序列比特流下标
 u8 fm_frame_bits[1100]={1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,0,0,1,0,0,1,0};//FM广播帧序列比特流缓冲区
 u16 fm_frame_index_byte=0;//FM广播01序列字节流下标
 u8 fm_frame_byte[1100/2]={0};//FM广播帧序列字节流缓冲区
-unsigned char XOR(unsigned char *BUFF, u16 len);
+
 void frame_resent(void);
 u8 main_busy=0;//主循环中正在执行
 u8 flag_byte_ready=0;//字节流已经全部保存到本地buffer标志位
@@ -44,15 +44,18 @@ int main(void)
 	u16 len;
 	u16 fm_total_bytes=0;//数据帧总有效字节数量
 
+//	u16 times=0;
+
 //	u8 bit_sync[14]={1,0,1,0,1,0,1,0,1,0,1,0,1,0};//位同步头
 //	u8 frame_sync[11]={1,1,1,0,0,0,1,0,0,1,0};//帧同步头	
 
 	delay_init();	    	 //延时函数初始化	  
 	NVIC_Configuration(); 	 //设置NVIC中断分组2:2位抢占优先级，2位响应优先级
-	uart_init(115200);	 	//串口初始化为9600
+	uart_init(115200);	 	//串口1初始化为9600
+	uart2_init(115200);	 //串口2初始化为4800
 //	KEY_Init();
  	LED_Init();			     //LED端口初始化
-	TIM5_Int_Init(7999,7199);//10Khz的计数频率，计数到8000为800ms
+	TIM5_Int_Init(9999,7199);//10Khz的计数频率，计数到8000为800ms
 	TIM3_Int_Init(9,7199);//1Khz的计数频率
 	TIM7_Int_Init(4,1199);//6K周期方波
 	TIM6_Int_Init(4,719);//10k周期方波
@@ -71,6 +74,19 @@ int main(void)
 	RDA5820_Freq_Set(send_frequency);	//设置频率
  	while(1)
 	{
+		if(USART2_RX_STA&0x80)
+		{					   
+			len=USART2_RX_STA&0x3ff;//得到此次接收到的数据长度
+			for(t=0;t<len;t++)
+			{
+				USART_SendData(USART2, USART2_RX_BUF[t]);  //向串口2发送数据
+				while(USART_GetFlagStatus(USART2,USART_FLAG_TC)!=SET);//等待发送结束
+			}
+			USART2_RX_STA=0;
+		}
+
+
+
 		if(flag_byte_ready==1){//数据保存本地成功
 			fm_frame_index_bits=25;//FM比特流数组重置
 			for(t=0;t<fm_frame_index_byte;t++){
@@ -81,6 +97,8 @@ int main(void)
 				}
 			}
 			TIM_Cmd(TIM3, ENABLE); //使能TIMx
+			TIM_Cmd(TIM6, ENABLE); //使能TIMx
+			TIM_Cmd(TIM7, ENABLE); //使能TIMx
 			flag_frame_processing=1;
 //			for (temp_frame_byte_index=0;temp_frame_byte_index<fm_frame_index_bits/4;temp_frame_byte_index++)
 //			{
@@ -108,6 +126,7 @@ int main(void)
 					index_frame_send=0;
  /*******************************************子板链接判断帧**********************************************************************************/
 					if((USART_RX_BUF[1]=='r')&&(USART_RX_BUF[2]=='d')&&(USART_RX_BUF[3]=='y')&&(USART_RX_BUF[4]=='_')){//连接帧
+						main_busy=1;
 						 frame_send_buf[index_frame_send]='$';
 						 index_frame_send++;
 						 frame_send_buf[index_frame_send]='r';
@@ -131,6 +150,7 @@ int main(void)
 						 }
 						 //printf("\r\n子板连接帧\r\n");
 						 USART_RX_STA=0;//处理完毕，允许接收下一帧
+						 main_busy=0;
 					}
  /*******************************************频谱扫描帧**********************************************************************************/					
 					else if((USART_RX_BUF[1]=='f')&&(USART_RX_BUF[2]=='r')&&(USART_RX_BUF[3]=='e')&&(USART_RX_BUF[4]=='_')){//频谱扫描帧
@@ -159,13 +179,13 @@ int main(void)
 						for(j=0;j<FREQUENCY_POINT;j++){
 							
 							RDA5820_Freq_Set(freqset);//设置频率
-							delay_ms(400);//等待10ms调频信号稳定
+							delay_ms(10);//等待10ms调频信号稳定
 							if(RDA5820_RD_Reg(0X0B)&(1<<8)){//是一个有效电台. 
 								frame_send_buf[9]=1;		 
 							}else{
 								frame_send_buf[9]=0;
 							}
-							delay_ms(400);
+							delay_ms(10);
 							frame_send_buf[8]=RDA5820_Rssi_Get();//得到信号强度
 							frame_send_buf[10]=XOR(frame_send_buf,index_frame_send-1);
 							for(t=0;t<index_frame_send;t++)
@@ -175,7 +195,7 @@ int main(void)
 								while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
 							}
 							if(main_busy==0)break;
-							delay_ms(200);
+						//	delay_ms(10);
 							frame_send_buf[7]++;
 
 							if(freqset<FREQUENCY_MAX)freqset+=10;  //频率增加100Khz
@@ -186,9 +206,11 @@ int main(void)
 						 RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
 						 delay_ms(20);					 
 						 USART_RX_STA=0;//处理完毕，允许接收下一帧
+						 main_busy=0;
 					}
  /*******************************************控制帧**********************************************************************************/
 					else if((USART_RX_BUF[1]=='c')&&(USART_RX_BUF[2]=='o')&&(USART_RX_BUF[3]=='n')&&(USART_RX_BUF[4]=='_')){//控制帧
+						main_busy=1;
 						frame_send_buf[index_frame_send]='$';
 						 index_frame_send++;
 						 frame_send_buf[index_frame_send]='c';
@@ -222,9 +244,11 @@ int main(void)
 						 }
 						 //printf("\r\n控制帧\r\n");
 						 USART_RX_STA=0;//处理完毕，允许接收下一帧
+						 main_busy=0;
 					}
  /*******************************************数据帧**********************************************************************************/					
 					else if((USART_RX_BUF[1]=='d')&&(USART_RX_BUF[2]=='a')&&(USART_RX_BUF[3]=='t')&&(USART_RX_BUF[4]=='_')){//数据帧
+						main_busy=1;
 				//		frame_resent();测试请求重传
 				//		delay_ms(100);
 						frame_send_buf[index_frame_send]='$';
@@ -263,6 +287,7 @@ int main(void)
 						USART_RX_STA=0;
 //						printf("\r\nData frame error.\r\n");
 						}
+					 main_busy=0;
 					}else {USART_RX_STA=0;}//else{printf("Frame anomalous!");}
 				}else {//数据帧的校验和出错时，请求重传
 					USART_RX_STA=0;
@@ -276,19 +301,6 @@ int main(void)
 }
 
 
-
-
-
-unsigned char XOR(unsigned char *BUFF, u16 len)
-{
-	unsigned char result=0;
-	u16 i;
-	for(result=BUFF[0],i=1;i<len;i++)
-	{
-		result ^= BUFF[i];
-	}
-	return result;
-}
 
 void frame_resent(void){
 	u16 t=0;

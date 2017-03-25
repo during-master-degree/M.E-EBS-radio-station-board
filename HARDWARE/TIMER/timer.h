@@ -13,11 +13,13 @@
 //Copyright(C) 广州市星翼电子科技有限公司 2009-2019
 //All rights reserved									  
 //////////////////////////////////////////////////////////////////////////////////   
-
+#define CHIP_CHECK_FREQUENCY 10	
 
 void TIM3_Int_Init(u16 arr,u16 psc);
 void TIM5_Int_Init(u16 arr,u16 psc);
 void TIM6_Int_Init(u16 arr,u16 psc);
 void TIM7_Int_Init(u16 arr,u16 psc);
-void tim3_pin_init(void);  
+void tim3_pin_init(void);
+unsigned char XOR(unsigned char *BUFF, u16 len);//异或校验和
+  
 #endif
