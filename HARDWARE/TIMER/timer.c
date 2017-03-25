@@ -92,13 +92,14 @@ extern u8 wakeup_times;//唤醒帧发送的次数
 u8 wakeup_times_index=0;//唤醒帧发送次数的索引值
 u8 delay_index=0;//帧间隔延迟的索引下标
 extern u8 flag_voice_broad;//是否正在广播。0：没有广播；1：正在广播；
+extern u16 send_frequency;//发射频点，只保存发射的频率
 //定时器3中断服务程序
 void TIM3_IRQHandler(void)   //TIM3中断
 {
 	if (TIM_GetITStatus(TIM3, TIM_IT_Update) != RESET)  //检查TIM3更新中断发生与否
 	{	
 //		if(t<fm_frame_index_bits){
-//			PBout(6)=fm_frame_bits[t];//还需要加位同步，帧同步头
+//			PAout(7)=fm_frame_bits[t];//还需要加位同步，帧同步头
 //			t++;
 //		}
 		if(flag_is_wakeup_frame==0){//非唤醒帧
@@ -126,6 +127,7 @@ void TIM3_IRQHandler(void)   //TIM3中断
 				USART2_RX_STA=0;//处理完毕，允许接收下一帧。防止循环进入
 				if(flag_voice_broad==0){
 					RDA5820_RX_Mode();			//接收模式
+					RDA5820_Freq_Set(send_frequency);	//设置频率
 				}
 				USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
 				USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//打开中断
@@ -176,6 +178,7 @@ void TIM3_IRQHandler(void)   //TIM3中断
 			USART2_RX_STA=0;//处理完毕，允许接收下一帧。防止循环进入
 			if(flag_voice_broad==0){
 				RDA5820_RX_Mode();			//接收模式
+				RDA5820_Freq_Set(send_frequency);	//设置频率
 			}
 			USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//打开中断
 //			USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//打开中断
@@ -349,15 +352,16 @@ void TIM7_Int_Init(u16 arr,u16 psc)
 
 void tim3_pin_init(void){
      GPIO_InitTypeDef  GPIO_InitStructure;
-	 RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB|RCC_APB2Periph_GPIOA, ENABLE);//使能PB,端口时钟
-	 GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8|GPIO_Pin_9;				 //LED0-->PB.5 端口配置
+	 RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB|RCC_APB2Periph_GPIOA, ENABLE);//使能PB、PA,端口时钟
+	 GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8|GPIO_Pin_9;				 
 	 GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP; 		 //推挽输出
 	 GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;		 //IO口速度为50MHz
 	 GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-	 GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;				 //LED0-->PB.5 端口配置
-	 GPIO_Init(GPIOA, &GPIO_InitStructure);
 	 GPIO_ResetBits(GPIOB,GPIO_Pin_8); //讨厌的蜂鸣器
+
+	 GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;				 //PAout(7):fsk控制信号
+	 GPIO_Init(GPIOA, &GPIO_InitStructure);
+	 
 }
 
 //定时器6中断服务程序

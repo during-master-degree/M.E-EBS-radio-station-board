@@ -52,13 +52,13 @@ u8 flag_is_wakeup_frame=0;//当前帧是唤醒帧的标志位
 u8 wakeup_times=0;//唤醒帧发送的次数
 
 u8 flag_voice_broad=0;//是否正在广播。0：没有广播；1：正在广播；
-
+u16 send_frequency=FREQUENCY_MIN;//发射频点，只保存发射的频率 
 extern u8 timer_67_stop;//定时器6,7被停止标志位。0：未被终止；1：被终止；
 
 int main(void)
 {	 
 	u16 freqset=FREQUENCY_MIN;//接收、发射频点
-	u16 send_frequency=FREQUENCY_MIN;//发射频点，只保存发射的频率 
+	
 	u16 fre_tmp=0;//计算频点的中间变量 
 	u16 t=0,j=0;
 	signed char i=0;//字节转比特流
@@ -102,7 +102,6 @@ int main(void)
 	RDA5820_Space_Set(0);	//设置步进为100Khz
 	RDA5820_TxPGA_Set(3);	//信号增益设置为3
 	RDA5820_TxPAG_Set(63);	//发射功率为最大.	
-//	RDA5820_TX_Mode();			//发送模式
 	RDA5820_RX_Mode();			//接收模式
 	STMFLASH_Read(FLASH_SAVE_ADDR,(u16*)flash_temp,SIZE);
 	fre_tmp=flash_temp[0]*10+FREQUENCY_MIN;
@@ -385,7 +384,7 @@ int main(void)
 							else freqset=FREQUENCY_MIN;		 	//越界处理 
 						 }
 
-	//					 RDA5820_TX_Mode();			//频谱扫描之后切换回发送模式
+						 if(flag_voice_broad==1) RDA5820_TX_Mode();			//频谱扫描之后，如果之前是在广播语音，则切换回发送模式
 						 RDA5820_Freq_Set(send_frequency);	//设置频率，换为全局变量
 						 delay_ms(20);					 
 						 USART_RX_STA=0;//处理完毕，允许接收下一帧
@@ -568,6 +567,9 @@ void safe_soc(void){
 	if (index_safe_times<200)
 	{
 		index_safe_times++;
+		if(((index_safe_times==0x0d)||(index_safe_times==0x24))){
+			index_safe_times++;
+		}
 	} 
 	else
 	{
